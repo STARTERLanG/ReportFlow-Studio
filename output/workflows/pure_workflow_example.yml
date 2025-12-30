@@ -1,0 +1,142 @@
+app:
+  name: "贷款主体基本信息提取工作流"
+  description: "从OCR文本中提取贷款主体的姓名、身份证号、手机号等基本信息，并输出为JSON格式"
+  mode: workflow
+  icon: "🤖"
+  use_icon_as_answer_icon: false
+kind: app
+version: 0.1.5
+workflow:
+  graph:
+    nodes:
+      - data:
+          desc: ""
+          selected: false
+          title: 开始
+          type: start
+          variables:
+            - label: OCR文本
+              max_length: null
+              options: []
+              required: true
+              type: text-input
+              variable: ocr_text
+        height: 90
+        id: "start_node"
+        position:
+          x: 30
+          y: 227
+        positionAbsolute:
+          x: 30
+          y: 227
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          desc: "使用LLM从OCR文本中结构化提取贷款主体基本信息"
+          title: 信息提取
+          type: llm
+          model:
+            provider: openai
+            name: gpt-4o
+            mode: chat
+          prompt_template:
+            - role: system
+              text: "你是一个专业的信息提取引擎，专门用于从OCR识别后的非结构化文本中精准提取贷款申请人的基本信息。请严格遵循以下指令：\n\n1. 仅从输入文本中提取以下字段：姓名、身份证号、手机号。\n2. 姓名：提取完整的中文姓名，确保无多余空格或标点；若存在多个姓名，优先选择与身份证号或手机号上下文关联最紧密的姓名。\n3. 身份证号：提取18位中国大陆居民身份证号码，必须符合校验规则（包括最后一位X的大小写规范）；若存在多个，仅保留与姓名匹配度最高的一个。\n4. 手机号：提取11位中国大陆手机号码，以1开头，第二位为3-9之间的数字；去除所有空格、横线或括号等分隔符，仅保留纯数字。\n5. 若某字段在文本中不存在或无法可靠识别，请对应字段输出“null”。\n6. 输出格式必须为严格的JSON对象，仅包含以下三个键：{\"name\": \"...\", \"id_card\": \"...\", \"phone\": \"...\"}，不得包含任何额外字段、说明或格式修饰。\n7. 禁止推测、补全或生成原文未明确出现的信息。所有提取结果必须有直接文本依据。"
+            - role: user
+              text: "{{#start_node.ocr_text#}}"
+          vision:
+            enabled: false
+            configs:
+              variable_selector: []
+          memory:
+            enabled: false
+            window:
+              enabled: false
+              size: 50
+          context:
+            enabled: false
+            variable_selector: []
+          structured_output:
+            enabled: false
+          retry_config:
+            enabled: false
+            max_retries: 1
+            retry_interval: 1000
+            exponential_backoff:
+              enabled: false
+              multiplier: 2
+              max_interval: 10000
+        height: 90
+        id: "llm_node"
+        position:
+          x: 334
+          y: 227
+        positionAbsolute:
+          x: 334
+          y: 227
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          desc: ""
+          outputs:
+            - value_selector:
+                - "llm_node"
+                - text
+              value_type: string
+              variable: extracted_json
+          selected: false
+          title: 结束
+          type: end
+        height: 90
+        id: "end_node"
+        position:
+          x: 638
+          y: 227
+        positionAbsolute:
+          x: 638
+          y: 227
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+    edges:
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: start
+          targetType: llm
+        id: start-to-llm
+        source: "start_node"
+        sourceHandle: source
+        target: "llm_node"
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: llm
+          targetType: end
+        id: llm-to-end
+        source: "llm_node"
+        sourceHandle: source
+        target: "end_node"
+        targetHandle: target
+        type: custom
+        zIndex: 0
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.7
+  features:
+    file_upload:
+      enabled: false
+  conversation_variables: []
+  environment_variables: []

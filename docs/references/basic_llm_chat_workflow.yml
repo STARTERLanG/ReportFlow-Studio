@@ -1,0 +1,44 @@
+app:
+  name: "标准Dify工作流"
+  mode: workflow
+  description: "用于LLM学习的最小化标准案例"
+kind: app
+version: 0.5.0
+workflow:
+  graph:
+    nodes:
+      - id: "start"
+        type: custom
+        data:
+          type: start
+          title: "开始"
+          variables:
+            - variable: "input_text"
+              label: "输入文本"
+              type: text-input
+              required: true
+      - id: "llm_main"
+        type: custom
+        data:
+          type: llm
+          title: "核心分析"
+          model:
+            provider: openai
+            name: gpt-4o
+            mode: chat
+          prompt_template: [PROMPT_FOR_TASK: "执行分析"]
+      - id: "end"
+        type: custom
+        data:
+          type: end
+          title: "结束"
+          outputs:
+            - variable: "result"
+              value_selector: ["llm_main", "text"]
+    edges:
+      - id: "edge_1"
+        source: "start"
+        target: "llm_main"
+      - id: "edge_2"
+        source: "llm_main"
+        target: "end"

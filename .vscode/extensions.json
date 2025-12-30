@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    // 支持 dotenv 文件语法
+    "mikestead.dotenv",
+    // 源代码的拼写检查器
+    // "streetsidesoftware.code-spell-checker",
+    // 代码格式化
+    "charliermarsh.ruff",
+    // git
+    "mhutchie.git-graph",
+    "redjue.git-commit-plugin"
+  ],
+  "unwantedRecommendations": []
+}
