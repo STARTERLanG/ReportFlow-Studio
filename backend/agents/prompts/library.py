@@ -97,16 +97,38 @@ YAML_ARCHITECT_PROMPT = """
 
 ### 节点类型与规范
 1. **Start (`start`)**: 必须定义 `variables` (用户输入)。
-2. **LLM (`llm`)**: 定义 `system_prompt` 和 `user_prompt`。引用变量使用 `@{{node_id.var_name}}` 格式。
-3. **Code (`code`)**: 定义 `code` (Python3) 和 `inputs` 映射。
+2. **LLM (`llm`)**:
+   - 定义 `system_prompt` 和 `user_prompt`。
+   - **模型配置**: 如果上下文中指定了模型（如通义千问），**必须**在 `model` 字段中正确配置 `provider` 和 `name`。
+     - 例如: `"model": {{ "provider": "langgenius/tongyi/tongyi", "name": "qwen3-30b-a3b-instruct-2507", "mode": "chat", "completion_params": {{ "temperature": 0.2 }} }}`
+   - 引用变量使用 `@{{node_id.var_name}}` 格式。
+3. **HTTP (`http-request`)**:
+   - 必须定义 `url` 和 `method`。
+   - 可选定义 `headers` (字符串), `params` (字符串), `body` (字符串)。
+   - **超时**: 如果要求设置超时，请在 `timeout` 字段中设置（单位秒，例如 `timeout: {{ "connect": 10, "read": 30, "write": 30 }}`）。
+4. **Code (`code`)**: 定义 `code` (Python3) 和 `inputs` 映射。
    - **必须**定义 `outputs` 列表，声明代码返回的所有字段名及其类型。
-4. **Template (`template-transform`)**: 定义 `template` 字符串。
-5. **If-Else (`if-else`)**: 定义 `branches` 列表。
+5. **Template (`template-transform`)**: 定义 `template` 字符串。
+6. **If-Else (`if-else`)**: 定义 `branches` 列表。
    - 每个分支包含 `operator` (contains, equals, etc.), `variable` (@{{...}}), `value`, `next_step`。
    - **重要限制**: 仅支持二元分支（True/False）。
    - 只能定义 **两个** 分支：一个普通条件分支，一个 `operator: "default"` 的分支作为 Else 路径。
    - 如需多路判断，必须使用级联 If-Else。
-6. **End (`end`)**: 定义 `outputs` 映射。
+7. **End (`end`)**: 定义 `outputs` 映射。
+
+### 插件依赖 (Dependencies)
+- 如果需求涉及外部插件（如“通义千问”），**必须**在根对象的 `dependencies` 数组中声明。
+- 格式示例:
+  ```json
+  "dependencies": [
+    {{
+      "type": "marketplace",
+      "value": {{
+        "marketplace_plugin_unique_identifier": "langgenius/tongyi:0.0.56@42a5fb7bc09b2f14f9d19f0ac79bec42c3c50dba07a52bf1b6d3abcd6906c739"
+      }}
+    }}
+  ]
+  ```
 
 ### 关键规则
 1. **变量引用**: 统一使用 `@{{node_id.var_name}}`。例如：`@{{start.input}}` 或 `@{{llm_1.text}}`。
@@ -120,6 +142,7 @@ YAML_ARCHITECT_PROMPT = """
 {{
   "name": "工作流名称",
   "description": "...",
+  "dependencies": [],
   "nodes": [
     {{
       "id": "start",
@@ -127,6 +150,14 @@ YAML_ARCHITECT_PROMPT = """
       "title": "开始",
       "variables": [{{ "name": "query", "type": "string" }}],
       "next_step": "router"
+    }},
+    {{
+      "id": "fetch_data",
+      "type": "http-request",
+      "title": "获取数据",
+      "url": "https://api.example.com/data",
+      "method": "GET",
+      "next_step": "process"
     }},
     {{
       "id": "router",
@@ -141,6 +172,7 @@ YAML_ARCHITECT_PROMPT = """
       "id": "handle_refund",
       "type": "llm",
       "title": "处理退款",
+      "model": {{ "provider": "openai", "name": "gpt-4o", "mode": "chat" }},
       "system_prompt": "...",
       "user_prompt": "@{{start.query}}",
       "next_step": "end"

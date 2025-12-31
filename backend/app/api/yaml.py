@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.agents.workflows.yaml_generator import YamlAgentService
+from backend.agents.workflows.dify_yaml_generator import YamlAgentService
 
 # 定义 API 路由
 router = APIRouter(prefix="/yaml", tags=["YAML Generation"])

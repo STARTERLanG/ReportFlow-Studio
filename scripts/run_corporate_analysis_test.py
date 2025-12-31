@@ -5,9 +5,11 @@ import sys
 sys.path.append(os.getcwd())
 
 from backend.agents.workflows.yaml_generator import YamlAgentService
+
 from backend.app.utils.network import configure_network_settings
 
 configure_network_settings()
+
 
 async def main():
     print("🚀 执行企业画像分析工作流生成测试...")
@@ -50,6 +52,7 @@ async def main():
         print(yaml_content[:500] + "...")
     except Exception as e:
         print(f"❌ 失败: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

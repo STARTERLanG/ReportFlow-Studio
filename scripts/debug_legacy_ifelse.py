@@ -1,16 +1,13 @@
-import yaml
 import os
+
+import yaml
 
 BASE_APP = {
     "kind": "app",
     "version": "0.1.5",
-    "app": {
-        "name": "Debug_Legacy_IfElse",
-        "mode": "workflow",
-        "icon": "🧪",
-        "icon_background": "#E0F2FE"
-    }
+    "app": {"name": "Debug_Legacy_IfElse", "mode": "workflow", "icon": "🧪", "icon_background": "#E0F2FE"},
 }
+
 
 def gen_legacy():
     data = BASE_APP.copy()
@@ -23,9 +20,9 @@ def gen_legacy():
                     "data": {
                         "type": "start",
                         "title": "Start",
-                        "variables": [{"variable": "q", "label": "q", "type": "string"}]
+                        "variables": [{"variable": "q", "label": "q", "type": "string"}],
                     },
-                    "position": {"x": 0, "y": 0}
+                    "position": {"x": 0, "y": 0},
                 },
                 {
                     "id": "router",
@@ -37,42 +34,64 @@ def gen_legacy():
                         "logical_operator": "and",
                         "conditions": [
                             {
-                                "id": "true", # This ID must match the edge sourceHandle
+                                "id": "true",  # This ID must match the edge sourceHandle
                                 "variable_selector": ["start", "q"],
                                 "comparison_operator": "contains",
                                 "value": "a",
-                                "varType": "string"
+                                "varType": "string",
                             }
-                        ]
+                        ],
                     },
-                    "position": {"x": 200, "y": 0}
+                    "position": {"x": 200, "y": 0},
                 },
                 {
                     "id": "end_true",
                     "type": "custom",
                     "data": {"type": "end", "title": "A", "outputs": []},
-                    "position": {"x": 400, "y": -100}
+                    "position": {"x": 400, "y": -100},
                 },
                 {
                     "id": "end_false",
                     "type": "custom",
                     "data": {"type": "end", "title": "B", "outputs": []},
-                    "position": {"x": 400, "y": 100}
-                }
+                    "position": {"x": 400, "y": 100},
+                },
             ],
             "edges": [
-                {"id": "e1", "source": "start", "target": "router", "sourceHandle": "source", "targetHandle": "target", "type": "custom"},
-                {"id": "e2", "source": "router", "target": "end_true", "sourceHandle": "true", "targetHandle": "target", "type": "custom"},
-                {"id": "e3", "source": "router", "target": "end_false", "sourceHandle": "false", "targetHandle": "target", "type": "custom"}
-            ]
+                {
+                    "id": "e1",
+                    "source": "start",
+                    "target": "router",
+                    "sourceHandle": "source",
+                    "targetHandle": "target",
+                    "type": "custom",
+                },
+                {
+                    "id": "e2",
+                    "source": "router",
+                    "target": "end_true",
+                    "sourceHandle": "true",
+                    "targetHandle": "target",
+                    "type": "custom",
+                },
+                {
+                    "id": "e3",
+                    "source": "router",
+                    "target": "end_false",
+                    "sourceHandle": "false",
+                    "targetHandle": "target",
+                    "type": "custom",
+                },
+            ],
         }
     }
-    
+
     path = "output/debug/legacy_ifelse.yml"
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, allow_unicode=True, sort_keys=False)
     print(f"Generated: {path}")
+
 
 if __name__ == "__main__":
     gen_legacy()

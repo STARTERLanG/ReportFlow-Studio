@@ -9,6 +9,7 @@ dependencies = [
     "qdrant-client>=1.7.0",
     "langchain>=1.2.0",
     "langchain-community>=0.4.1",
+    "langchain-core>=0.2.38",
     "langchain-openai>=1.1.6",
     "python-dotenv>=1.2.1",
     "pyyaml>=6.0.3",

@@ -1,0 +1,110 @@
+kind: app
+version: 0.1.5
+app:
+  name: 数据摘要工作流
+  description: 从指定API获取数据并使用通义千问模型生成摘要
+  mode: workflow
+  icon: 🤖
+  icon_background: '#FFEAD5'
+dependencies:
+- type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.0.56@42a5fb7bc09b2f14f9d19f0ac79bec42c3c50dba07a52bf1b6d3abcd6906c739
+workflow:
+  graph:
+    nodes:
+    - id: start
+      type: custom
+      position:
+        x: 0
+        y: 0
+      data:
+        title: 开始
+        desc: ''
+        type: start
+        variables: []
+    - id: fetch_data
+      type: custom
+      position:
+        x: 200
+        y: 0
+      data:
+        title: 获取数据
+        desc: ''
+        type: http-request
+        method: GET
+        url: https://api.example.com/data
+        authorization:
+          type: no-auth
+        headers: ''
+        params: ''
+        body:
+          type: none
+          data: ''
+        timeout:
+          connect: 30
+          read: 30
+          write: 30
+    - id: summarize
+      type: custom
+      position:
+        x: 400
+        y: 0
+      data:
+        title: 生成摘要
+        desc: ''
+        type: llm
+        model:
+          provider: langgenius/tongyi/tongyi
+          name: qwen3-30b-a3b-instruct-2507
+          mode: chat
+          completion_params:
+            temperature: 0.2
+        vision:
+          enabled: false
+        memory:
+          window:
+            enabled: false
+            size: 10
+        context:
+          enabled: false
+          variable_selector: []
+        prompt_template:
+        - role: system
+          text: "## 角色设定  \n你是一名专业的数据分析师，具备扎实的金融与商业尽调背景，擅长从结构化或非结构化数据中提炼关键信息，生成精准、简洁、无冗余的摘要。\n\n## 任务  \n对输入的数据内容进行高度凝练的摘要，聚焦核心事实、关键指标、趋势变化及潜在风险点。摘要需体现数据的业务含义，避免描述性语言或主观推断。\n\n## 限制  \n- 禁止输出分析过程、推理步骤或中间结论。  \n- 仅输出最终摘要文本，不得包含标题、前缀、后缀或解释性语句。  \n- 摘要必须控制在三句话以内，语言严谨、专业，使用标准金融/尽调术语（如“EBITDA利润率”、“客户集中度风险”、“同比增速”等）。  \n- 不得引入输入数据以外的任何外部信息或假设。  \n\n## 技术约束  \n- 必须通过 `langgenius/tongyi` 插件执行，插件标识符为：`marketplace_plugin_unique_identifier: langgenius/tongyi:0.0.56@42a5fb7bc09b2f14f9d19f0ac79bec42c3c50dba07a52bf1b6d3abcd6906c739`。  \n- LLM 节点须配置为：`provider: langgenius/tongyi/tongyi`, `name: qwen3-30b-a3b-instruct-2507`。  \n- 所有 HTTP 请求超时时间严格限定为 30 秒。"
+        - role: user
+          text: '{{#fetch_data.response_body#}}'
+    - id: end
+      type: custom
+      position:
+        x: 0
+        y: 200
+      data:
+        title: 结束
+        desc: ''
+        type: end
+        outputs:
+        - variable: summary
+          value_selector:
+          - summarize
+          - text
+          value_type: string
+    edges:
+    - id: edge_0
+      source: start
+      target: fetch_data
+      sourceHandle: source
+      targetHandle: target
+      type: custom
+    - id: edge_1
+      source: fetch_data
+      target: summarize
+      sourceHandle: source
+      targetHandle: target
+      type: custom
+    - id: edge_2
+      source: summarize
+      target: end
+      sourceHandle: source
+      targetHandle: target
+      type: custom

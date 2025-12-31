@@ -1,5 +1,5 @@
-from pathlib import Path
 import warnings
+from pathlib import Path
 
 import yaml
 from langchain_community.embeddings import DashScopeEmbeddings
@@ -31,7 +31,6 @@ class RagService:
         # 忽略不安全连接的警告（仅在本地开发时使用）
         if settings.qdrant.url.startswith("http://"):
             warnings.filterwarnings("ignore", message="Api key is used with an insecure connection.")
-        
 
         self.client = QdrantClient(
             location=settings.qdrant.url,
