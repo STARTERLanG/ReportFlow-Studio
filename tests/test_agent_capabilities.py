@@ -1,6 +1,8 @@
+import asyncio
+
 import pytest
 import yaml
-import asyncio
+
 from backend.agents.workflows.yaml_generator import YamlAgentService
 from backend.app.config import settings
 
@@ -29,9 +31,7 @@ def test_yaml_workflow_generation_capability():
 
         try:
             # 3. 执行生成
-            print(
-                "[执行] 正在运行 Agent Workflow (Planner -> Architect -> PromptExpert -> Assembler)..."
-            )
+            print("[执行] 正在运行 Agent Workflow (Planner -> Architect -> PromptExpert -> Assembler)...")
             yaml_content = await service.generate_yaml(user_request, context)
 
             print(f"[输出] 生成结果长度: {len(yaml_content)} 字符")
@@ -43,9 +43,7 @@ def test_yaml_workflow_generation_capability():
             if "[PROMPT_FOR_TASK:" in yaml_content:
                 print("!!! 检测到残留占位符，输出片段:")
                 print(yaml_content[:500] + "...")
-                pytest.fail(
-                    "Agent 未能完成 Prompt 生成任务，YAML 中仍包含 '[PROMPT_FOR_TASK:' 占位符"
-                )
+                pytest.fail("Agent 未能完成 Prompt 生成任务，YAML 中仍包含 '[PROMPT_FOR_TASK:' 占位符")
 
             try:
                 yaml_obj = yaml.safe_load(yaml_content)
@@ -54,9 +52,7 @@ def test_yaml_workflow_generation_capability():
                 pytest.fail(f"生成的格式不是合法的 YAML: {e}")
 
             is_translation_related = (
-                "translat" in yaml_content.lower()
-                or "翻译" in yaml_content
-                or "chinese" in yaml_content.lower()
+                "translat" in yaml_content.lower() or "翻译" in yaml_content or "chinese" in yaml_content.lower()
             )
             assert is_translation_related, "生成的 YAML 中未检测到与'翻译'相关的关键词"
 

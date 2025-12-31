@@ -10,9 +10,7 @@ def inspect_table_structure():
         return
 
     table = doc.tables[0]
-    print(
-        f"Table found with {len(table.rows)} rows and {len(table.columns)} columns (grid)."
-    )
+    print(f"Table found with {len(table.rows)} rows and {len(table.columns)} columns (grid).")
     print("=" * 60)
 
     # Inspect first 50 rows to find patterns for "Section Headers"
@@ -33,15 +31,14 @@ def inspect_table_structure():
 
         # Check heuristics for being a "Header Row"
         is_bold = False
-        font_size = 0
         try:
             # Naive check of first run in first cell
             if unique_cells and unique_cells[0].paragraphs:
                 run = unique_cells[0].paragraphs[0].runs[0]
                 is_bold = run.bold
                 if run.font.size:
-                    font_size = run.font.size.pt
-        except:
+                    _ = run.font.size.pt
+        except Exception:
             pass
 
         # Print analysis

@@ -1,11 +1,11 @@
-import typer
 import time
 from pathlib import Path
-from typing import Optional
 
-from backend.app.logger import logger, set_debug_mode
-from backend.agents.memories.vector_store import RagService
+import typer
+
 from backend.agents.core.orchestrator import AgentService
+from backend.agents.memories.vector_store import RagService
+from backend.app.logger import logger, set_debug_mode
 from backend.app.utils.network import configure_network_settings
 
 # 初始化网络配置
@@ -29,9 +29,7 @@ def global_config(
 @app.command()
 def generate(
     query: str = typer.Argument(..., help="用自然语言描述你想要的工作流。"),
-    output: Optional[Path] = typer.Option(
-        None, "--output", "-o", help="输出文件路径。默认使用时间戳命名。"
-    ),
+    output: Path | None = typer.Option(None, "--output", "-o", help="输出文件路径。默认使用时间戳命名。"),
     k: int = typer.Option(3, "--k", "-k", help="检索参考案例的数量。"),
 ):
     """
@@ -70,7 +68,7 @@ def generate(
 
     except Exception as e:
         logger.critical(f"生成流程失败: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":

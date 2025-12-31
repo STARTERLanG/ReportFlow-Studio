@@ -1,7 +1,9 @@
 import json
-from typing import List, Dict, Any
-from langchain_openai import ChatOpenAI
+from typing import Any
+
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
 from backend.app.config import settings
 from backend.app.logger import logger
 
@@ -68,19 +70,11 @@ class BlueprintService:
             temperature=0,
         )
 
-    async def generate_graph(
-        self, tasks: List[Dict], file_data: List[Dict]
-    ) -> Dict[str, Any]:
+    async def generate_graph(self, tasks: list[dict], file_data: list[dict]) -> dict[str, Any]:
         logger.info(f"启动蓝图生成: 任务数={len(tasks)}, 资料数={len(file_data)}")
 
-        files_context = [
-            f"文件 #{i}: {f['name']}\n内容摘要: {f['snippet']}"
-            for i, f in enumerate(file_data)
-        ]
-        tasks_context = [
-            f"任务 #{i}: {t['task_name']}\n要求: {t['description']}"
-            for i, t in enumerate(tasks)
-        ]
+        files_context = [f"文件 #{i}: {f['name']}\n内容摘要: {f['snippet']}" for i, f in enumerate(file_data)]
+        tasks_context = [f"任务 #{i}: {t['task_name']}\n要求: {t['description']}" for i, t in enumerate(tasks)]
 
         prompt = ChatPromptTemplate.from_template(BLUEPRINT_DEEP_ALIGN_PROMPT)
         chain = prompt | self.llm
@@ -103,9 +97,7 @@ class BlueprintService:
             logger.error(f"蓝图生成失败: {str(e)}")
             return {"nodes": [], "edges": [], "error": f"蓝图生成失败: {str(e)}"}
 
-    def _build_graph(
-        self, decision: Dict, original_tasks: List[Dict], original_files: List[Dict]
-    ) -> Dict:
+    def _build_graph(self, decision: dict, original_tasks: list[dict], original_files: list[dict]) -> dict:
         nodes = []
         edges = []
 
@@ -132,9 +124,7 @@ class BlueprintService:
 
         mappings = decision.get("mappings")
         if not mappings or not isinstance(mappings, list):
-            logger.warning(
-                "AI 返回的数据中没有找到有效的 'mappings' 数组，无法构建图。"
-            )
+            logger.warning("AI 返回的数据中没有找到有效的 'mappings' 数组，无法构建图。")
             return {"nodes": nodes, "edges": []}
 
         # 2. 遍历 mappings，创建唯一的 Category 和 Agent 节点
@@ -188,9 +178,7 @@ class BlueprintService:
             # 连接：Category -> Agent
             edge_cat_agent_id = f"e-{cat_id}-{agent_id}"
             if not any(e["id"] == edge_cat_agent_id for e in edges):
-                edges.append(
-                    {"id": edge_cat_agent_id, "source": cat_id, "target": agent_id}
-                )
+                edges.append({"id": edge_cat_agent_id, "source": cat_id, "target": agent_id})
 
             # 连接：File -> Category (多对一)
             for f_idx in m.get("file_indices", []):
@@ -221,13 +209,9 @@ class BlueprintService:
                     )
 
         # 4. 过滤掉没有连接的孤儿节点 (除了最开始的输入和最末尾的输出)
-        connected_node_ids = set(e["source"] for e in edges) | set(
-            e["target"] for e in edges
-        )
+        connected_node_ids = set(e["source"] for e in edges) | set(e["target"] for e in edges)
         # 始终保留所有输入和输出节点
-        final_node_ids = connected_node_ids | {
-            n["id"] for n in nodes if n["type"] in ["input", "output"]
-        }
+        final_node_ids = connected_node_ids | {n["id"] for n in nodes if n["type"] in ["input", "output"]}
 
         final_nodes = [n for n in nodes if n["id"] in final_node_ids]
 

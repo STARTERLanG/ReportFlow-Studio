@@ -1,16 +1,17 @@
-import yaml
-from typing import List, Any
-from langchain_openai import ChatOpenAI
-from deepagents import create_deep_agent
+from typing import Any
 
+import yaml
+from deepagents import create_deep_agent
+from langchain_openai import ChatOpenAI
+
+from backend.agents.prompts.library import (
+    ARCHITECT_PROMPT,
+    DSL_CODER_PROMPT,
+    MAIN_AGENT_SYSTEM_PROMPT,
+    PROMPT_EXPERT_PROMPT,
+)
 from backend.app.config import settings
 from backend.app.logger import logger
-from backend.agents.prompts.library import (
-    MAIN_AGENT_SYSTEM_PROMPT,
-    ARCHITECT_PROMPT,
-    PROMPT_EXPERT_PROMPT,
-    DSL_CODER_PROMPT,
-)
 
 
 class AgentService:
@@ -21,9 +22,7 @@ class AgentService:
         # 优先使用参数，否则使用配置
         self.model_name = model_name or settings.llm.model_name
 
-        logger.info(
-            f"初始化 Agent 服务: Model={self.model_name}, BaseURL={settings.llm.base_url}"
-        )
+        logger.info(f"初始化 Agent 服务: Model={self.model_name}, BaseURL={settings.llm.base_url}")
 
         # 创建统一的 LLM 实例
         self.llm = ChatOpenAI(
@@ -33,7 +32,7 @@ class AgentService:
             temperature=0,
         )
 
-    def generate_workflow(self, user_request: str, reference_docs: List[Any]) -> str:
+    def generate_workflow(self, user_request: str, reference_docs: list[Any]) -> str:
         """
         执行多智能体工作流生成。
         """

@@ -1,5 +1,6 @@
-from backend.app.services.template_service import TemplateService
 import json
+
+from backend.app.services.template_service import TemplateService
 
 
 def verify_template():

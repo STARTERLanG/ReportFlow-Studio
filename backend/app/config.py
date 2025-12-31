@@ -1,6 +1,7 @@
 import os
-from dotenv import load_dotenv
 from dataclasses import dataclass
+
+from dotenv import load_dotenv
 
 # 加载环境变量，允许覆盖
 load_dotenv(override=True)
@@ -49,12 +50,7 @@ class Settings:
         ds_key = os.getenv("DASHSCOPE_API_KEY") or l_key
         self.embedding = EmbeddingConfig(
             provider=e_provider,
-            model_name=e_model
-            or (
-                "text-embedding-v1"
-                if e_provider == "dashscope"
-                else "text-embedding-3-small"
-            ),
+            model_name=e_model or ("text-embedding-v1" if e_provider == "dashscope" else "text-embedding-3-small"),
             api_key=ds_key,
         )
 

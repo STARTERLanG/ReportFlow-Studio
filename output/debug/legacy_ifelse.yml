@@ -1,0 +1,76 @@
+kind: app
+version: 0.1.5
+app:
+  name: Debug_Legacy_IfElse
+  mode: workflow
+  icon: 🧪
+  icon_background: '#E0F2FE'
+workflow:
+  graph:
+    nodes:
+    - id: start
+      type: custom
+      data:
+        type: start
+        title: Start
+        variables:
+        - variable: q
+          label: q
+          type: string
+      position:
+        x: 0
+        y: 0
+    - id: router
+      type: custom
+      data:
+        type: if-else
+        title: Router
+        logical_operator: and
+        conditions:
+        - id: 'true'
+          variable_selector:
+          - start
+          - q
+          comparison_operator: contains
+          value: a
+          varType: string
+      position:
+        x: 200
+        y: 0
+    - id: end_true
+      type: custom
+      data:
+        type: end
+        title: A
+        outputs: []
+      position:
+        x: 400
+        y: -100
+    - id: end_false
+      type: custom
+      data:
+        type: end
+        title: B
+        outputs: []
+      position:
+        x: 400
+        y: 100
+    edges:
+    - id: e1
+      source: start
+      target: router
+      sourceHandle: source
+      targetHandle: target
+      type: custom
+    - id: e2
+      source: router
+      target: end_true
+      sourceHandle: 'true'
+      targetHandle: target
+      type: custom
+    - id: e3
+      source: router
+      target: end_false
+      sourceHandle: 'false'
+      targetHandle: target
+      type: custom

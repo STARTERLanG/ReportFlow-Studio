@@ -1,21 +1,21 @@
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class ProjectBase(SQLModel):
     name: str
-    description: Optional[str] = None
-    template_path: Optional[str] = None
-    source_files_path: Optional[str] = None
+    description: str | None = None
+    template_path: str | None = None
+    source_files_path: str | None = None
 
 
 class Project(ProjectBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    blueprints: List["Blueprint"] = Relationship(back_populates="project")
+    blueprints: list["Blueprint"] = Relationship(back_populates="project")
 
 
 class BlueprintBase(SQLModel):
@@ -26,7 +26,7 @@ class BlueprintBase(SQLModel):
 
 
 class Blueprint(BlueprintBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

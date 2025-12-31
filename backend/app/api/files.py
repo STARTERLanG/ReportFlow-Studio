@@ -1,17 +1,18 @@
 import os
 import shutil
 import zipfile
-import yaml
-from typing import List, Dict
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from backend.app.logger import logger
 from tempfile import NamedTemporaryFile
+
+import yaml
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from backend.app.logger import logger
 
 router = APIRouter(prefix="/files", tags=["Files"])
 
 
 @router.post("/upload/datasource")
-async def upload_datasource(file: UploadFile = File(...)) -> List[Dict]:
+async def upload_datasource(file: UploadFile = File(...)) -> list[dict]:
     """
     上传并解析资料包，提取文件名及其内容摘要。
     """
@@ -44,7 +45,7 @@ async def upload_datasource(file: UploadFile = File(...)) -> List[Dict]:
                             try:
                                 data = yaml.safe_load(raw_content)
                                 content_snippet = str(data)[:1000]
-                            except:
+                            except Exception:
                                 content_snippet = raw_content[:1000]
                         else:
                             content_snippet = raw_content[:1000]
@@ -59,4 +60,4 @@ async def upload_datasource(file: UploadFile = File(...)) -> List[Dict]:
 
     except Exception as e:
         logger.exception(f"资料包处理失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}") from e

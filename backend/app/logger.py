@@ -5,9 +5,7 @@ import sys
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 
-def setup_logger(
-    name: str = "ReportFlow-Studio", level: int = logging.INFO
-) -> logging.Logger:
+def setup_logger(name: str = "ReportFlow-Studio", level: int = logging.INFO) -> logging.Logger:
     """
     配置并返回一个 Logger 实例。
     """

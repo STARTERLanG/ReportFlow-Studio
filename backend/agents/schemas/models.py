@@ -1,5 +1,4 @@
-from typing import Optional
-from sqlmodel import SQLModel, Field
+from sqlmodel import Field, SQLModel
 
 
 class AgentBase(SQLModel):
@@ -10,17 +9,17 @@ class AgentBase(SQLModel):
 
 
 class Agent(AgentBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    blueprint_id: Optional[int] = Field(default=None, foreign_key="blueprint.id")
+    id: int | None = Field(default=None, primary_key=True)
+    blueprint_id: int | None = Field(default=None, foreign_key="blueprint.id")
 
 
 class TaskBase(SQLModel):
     field_name: str
-    context_before: Optional[str] = None
-    context_after: Optional[str] = None
-    requirement: Optional[str] = None
+    context_before: str | None = None
+    context_after: str | None = None
+    requirement: str | None = None
 
 
 class Task(TaskBase, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    agent_id: Optional[int] = Field(default=None, foreign_key="agent.id")
+    id: int | None = Field(default=None, primary_key=True)
+    agent_id: int | None = Field(default=None, foreign_key="agent.id")

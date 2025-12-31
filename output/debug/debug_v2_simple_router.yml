@@ -1,0 +1,78 @@
+kind: app
+version: 0.1.5
+app:
+  name: Debug_V2_SimpleRouter
+  description: 根据用户输入自动判断是否涉及退款，并分别处理。
+  mode: workflow
+  icon: 🤖
+  icon_background: '#FFEAD5'
+workflow:
+  graph:
+    nodes:
+    - id: start
+      type: custom
+      position:
+        x: 0
+        y: 0
+      data:
+        type: start
+        title: Start
+        variables:
+        - name: q
+          type: string
+    - id: router
+      type: custom
+      position:
+        x: 200
+        y: 0
+      data:
+        type: if-else
+        title: Router
+        cases:
+        - case_id: 'true'
+          logical_operator: and
+          conditions:
+          - id: c1
+            variable_selector:
+            - start
+            - q
+            comparison_operator: contains
+            value: a
+            varType: string
+    - id: end_true
+      type: custom
+      position:
+        x: 400
+        y: -100
+      data:
+        type: end
+        title: End A
+        outputs: []
+    - id: end_false
+      type: custom
+      position:
+        x: 400
+        y: 100
+      data:
+        type: end
+        title: End B
+        outputs: []
+    edges:
+    - id: e1
+      source: start
+      target: router
+      sourceHandle: source
+      targetHandle: target
+      type: custom
+    - id: e2
+      source: router
+      target: end_true
+      sourceHandle: 'true'
+      targetHandle: target
+      type: custom
+    - id: e3
+      source: router
+      target: end_false
+      sourceHandle: 'false'
+      targetHandle: target
+      type: custom

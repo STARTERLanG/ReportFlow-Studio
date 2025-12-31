@@ -22,9 +22,43 @@ dependencies = [
     "python-multipart>=0.0.21",
     "pytest>=9.0.2",
     "httpx>=0.28.1",
+    "jsonschema>=4.25.1",
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.14.10",
 ]
+
+[tool.ruff]
+target-version = "py310"
+
+line-length = 120
+
+[tool.ruff.lint]
+# 2. 启用规则集
+select = [
+    "F",    # Pyflakes: 发现逻辑错误 (如未使用的变量)
+    "E",    # pycodestyle errors: 代码风格错误
+    "W",    # pycodestyle warnings: 代码风格警告
+    "I",    # isort: 自动对 import 进行排序和归类 (非常推荐!)
+    "UP",   # pyupgrade: 自动升级语法 (包含你想要的 X | Y)
+    "B",    # flake8-bugbear: 发现潜在的 Bug 设计
+    "SIM",  # flake8-simplify: 建议更简单的代码写法
+    "N",    # pep8-naming: 检查变量/函数命名规范
+]
+
+# 忽略的规则
+ignore = [
+    "E501", # 忽略行过长检查 (交给 format 自动处理，或者容忍特例)
+]
+
+# 针对特定文件的忽略规则
+extend-per-file-ignores = { "backend/app/api/*.py" = ["B008"], "backend/cli.py" = ["B008"], "scripts/*.py" = ["B008", "E402"] }
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

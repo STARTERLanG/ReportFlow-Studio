@@ -1,13 +1,14 @@
-import typer
 import sys
 from pathlib import Path
+
+import typer
 
 # 将项目根目录添加到 sys.path，确保在 scripts 目录下运行也能找到 src
 root_path = Path(__file__).parent.parent
 sys.path.append(str(root_path))
 
-from backend.app.logger import logger, set_debug_mode
 from backend.agents.memories.vector_store import RagService
+from backend.app.logger import logger, set_debug_mode
 from backend.app.utils.network import configure_network_settings
 
 # 初始化网络配置 (绕过代理)
@@ -22,9 +23,7 @@ def main(
         default=root_path / "knowledge_base",
         help="包含要索引的 .yml 工作流文件的目录。",
     ),
-    rebuild: bool = typer.Option(
-        False, "--rebuild", "-r", help="强制重建索引（清空旧数据）。"
-    ),
+    rebuild: bool = typer.Option(False, "--rebuild", "-r", help="强制重建索引（清空旧数据）。"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="开启详细调试日志"),
 ):
     """
@@ -47,7 +46,7 @@ def main(
         logger.info("🎉 入库完成！现在你可以运行 main.py 进行生成了。")
     except Exception as e:
         logger.critical(f"入库失败: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":

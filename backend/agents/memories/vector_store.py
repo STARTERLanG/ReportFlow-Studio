@@ -1,20 +1,21 @@
 from pathlib import Path
-import yaml
+import warnings
 
+import yaml
+from langchain_community.embeddings import DashScopeEmbeddings
+from langchain_core.documents import Document
+
+# Embeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
-from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # 引入新模块
 from backend.app.config import settings
 from backend.app.logger import logger
 from backend.app.utils.file_io import load_all_yamls
-
-# Embeddings
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.embeddings import DashScopeEmbeddings
 
 
 class RagService:
@@ -26,6 +27,12 @@ class RagService:
 
         # 1. 初始化 Qdrant 客户端
         logger.debug(f"连接 Qdrant: {settings.qdrant.url}")
+
+        # 忽略不安全连接的警告（仅在本地开发时使用）
+        if settings.qdrant.url.startswith("http://"):
+            warnings.filterwarnings("ignore", message="Api key is used with an insecure connection.")
+        
+
         self.client = QdrantClient(
             location=settings.qdrant.url,
             api_key=settings.qdrant.api_key,
@@ -49,14 +56,10 @@ class RagService:
     def _init_embeddings(self):
         """根据配置初始化 Embedding 模型。"""
         cfg = settings.embedding
-        logger.debug(
-            f"初始化 Embeddings: Provider={cfg.provider}, Model={cfg.model_name}"
-        )
+        logger.debug(f"初始化 Embeddings: Provider={cfg.provider}, Model={cfg.model_name}")
 
         if cfg.provider == "dashscope":
-            self.embedding_function = DashScopeEmbeddings(
-                model=cfg.model_name, dashscope_api_key=cfg.api_key
-            )
+            self.embedding_function = DashScopeEmbeddings(model=cfg.model_name, dashscope_api_key=cfg.api_key)
         else:
             self.embedding_function = OpenAIEmbeddings(
                 model=cfg.model_name,
@@ -121,9 +124,7 @@ class RagService:
             item_copy.pop("__filename__", None)
 
             yaml_content = yaml.dump(item_copy, allow_unicode=True, sort_keys=False)
-            full_content = (
-                f"文件名: {filename}\n描述: {description}\n\n内容:\n{yaml_content}"
-            )
+            full_content = f"文件名: {filename}\n描述: {description}\n\n内容:\n{yaml_content}"
 
             raw_doc = Document(
                 page_content=full_content,

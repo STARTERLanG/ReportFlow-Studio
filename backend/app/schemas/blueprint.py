@@ -1,25 +1,26 @@
+from typing import Any
+
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
 
 
 class FlowNode(BaseModel):
     id: str
     type: str  # 'input', 'agent', 'output'
-    data: Dict[str, Any]
-    position: Dict[str, float]
-    style: Optional[Dict[str, Any]] = None
+    data: dict[str, Any]
+    position: dict[str, float]
+    style: dict[str, Any] | None = None
 
 
 class FlowEdge(BaseModel):
     id: str
     source: str
     target: str
-    animated: Optional[bool] = True
-    label: Optional[str] = None
+    animated: bool | None = True
+    label: str | None = None
 
 
 class BlueprintResponse(BaseModel):
-    nodes: List[FlowNode]
-    edges: List[FlowEdge]
-    confidence_scores: Optional[Dict[str, float]] = {}
-    error: Optional[str] = None
+    nodes: list[FlowNode]
+    edges: list[FlowEdge]
+    confidence_scores: dict[str, float] | None = {}
+    error: str | None = None

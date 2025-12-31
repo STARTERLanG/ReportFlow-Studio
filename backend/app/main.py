@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.logger import logger
 
-from backend.app.api.templates import router as templates_router
 from backend.app.api.blueprints import router as blueprints_router
 from backend.app.api.files import router as files_router
+from backend.app.api.templates import router as templates_router
 from backend.app.api.yaml import router as yaml_router
+from backend.app.logger import logger
 
 # Initialize FastAPI app
 app = FastAPI(

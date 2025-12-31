@@ -1,296 +1,218 @@
 kind: app
-version: 0.5.0
+version: 0.1.5
 app:
-  name: 智能客户反馈分析工作流
+  name: 智能客服路由工作流
+  description: 根据用户输入自动判断意图并路由到相应处理节点，支持退款、紧急问题和普通咨询。
   mode: workflow
+  icon: 🤖
+  icon_background: '#FFEAD5'
 workflow:
   graph:
     nodes:
     - id: start
       type: custom
+      position:
+        x: 0
+        y: 0
       data:
         title: 开始
-        variables:
-        - variable: input_text
-          type: string
-          required: true
+        desc: ''
         type: start
-      position:
-        x: 200
-        y: 100
-    - id: preprocess_clean
-      type: custom
-      data:
-        title: 文本预处理与降噪
-        code: |
-          import re
-          def main(input_text):
-              # 移除多余空白、特殊字符清洗
-              cleaned = re.sub(r'[^\w\s\u4e00-\u9fff.,!?]', '', input_text)
-              cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-              return {"cleaned_text": cleaned}
         variables:
-        - variable: cleaned_text
-          type: string
-        dependencies:
-        - '{{#start.input_text#}}'
-        type: code
+        - variable: query
+          label: query
+          type: text-input
+          required: true
+          options: []
+          max_length: 48
+    - id: check_refund
+      type: custom
       position:
         x: 200
-        y: 250
-    - id: extract_key_events
-      type: custom
+        y: 0
       data:
-        title: 提取关键事件
-        model:
-          provider: openai
-          name: gpt-4o
-          mode: chat
-          parameters:
-            temperature: 0.3
-            max_tokens: 500
-        prompt:
-          system: 你是一名专业客服分析师，请从用户反馈中精准提取出所有关键事件（如：订单延迟、支付失败、产品损坏等），以JSON格式返回，字段为"key_events"，值为字符串列表。
-          user: '{{#preprocess_clean.cleaned_text#}}'
-        vision:
-          enabled: false
-          configs:
-            variable_selector: []
-        memory:
-          enabled: false
-          window:
-            enabled: false
-            size: 50
-        context:
-          enabled: false
-          variable_selector: []
-        structured_output:
-          enabled: false
-        variables:
-        - variable: key_events
-          type: array
-        type: llm
-        prompt_template:
-        - role: system
-          text: "# 角色  \n资深尽职调查分析师（侧重关键事件识别与时间线重构）  \n\n# 目标  \n您的任务是从企业提供的原始非结构化文本材料（如访谈纪要、新闻报道、内部邮件、监管公告等）中，精准提取影响企业信用状况、经营稳定性或重大决策的**关键事件**，并按标准格式输出。  \n\n# 核心任务  \n请执行以下两步操作：  \n\n1. **关键事件识别 (Key Event Identification)**：  \n    * **重大经营变动**：包括但不限于实际控制人变更、核心管理层离职、主营业务转型、重大资产出售/收购、停产/搬迁等。  \n    * **法律与合规风险**：包括涉诉、仲裁、行政处罚、监管立案、失信被执行、环保违规等。  \n    * **财务异常信号**：如债务违约、贷款展期、票据拒付、大额资产冻结、审计报告保留意见等。  \n    * **外部冲击事件**：如行业政策突变、主要客户/供应商流失、重大安全事故、公共卫生事件影响等。  \n\n2. **事件要素结构化 (Event Structuring)**：  \n    对每个识别出的关键事件，必须提取以下四要素：  \n    * **事件类型**：从上述四类中选择最匹配的类别。  \n    * **事件描述**：用一句话概括事件核心内容，禁止直接复制原文长句，需提炼为“主体+行为+结果”结构。  \n    * **发生时间**：优先使用明确日期（YYYY-MM-DD）；若无，则用“近期”“2023年Q3”等相对时间表述；若完全未知，标注“时间不详”。  \n    * **信息来源**：注明该事件出自哪类材料（如“访谈记录”“法院公告”“企业自述”），不可编造。  \n\n# 写作约束  \n1. **格式强制规范**：  \n    * 必须使用中文序号 `（1）`、`（2）`……作为每个事件的主编号。  \n    * 每个事件下必须按顺序列出四行，格式为：  \n      事件类型：[类别]  \n      事件描述：[提炼后的描述]  \n      发生时间：[时间]  \n      信息来源：[来源类型]  \n    * 严禁使用 Markdown（如 **、##、）、项目符号（-、•）或表格。  \n\n2. **内容真实性原则**：\
-            \  \n    * 仅提取原文明确提及或可合理推断的事件（如“公司被起诉”可推断为“涉诉”）。  \n    * 禁止推测未提及的细节（如原文说“有诉讼”，但未提金额，则不得写“涉诉金额500万元”）。  \n    * 若某事件缺失任一要素（如无时间），仍需输出其余要素，并在缺失项写“未提及”。  \n\n3. **输出纯净性要求**：  \n    * 不作任何开场白、总结或交互语句，直接输出事件列表。  \n    * 禁止输出分析过程、置信度判断或“可能”“疑似”等模糊表述。  \n    * 换行符用 `<br>` 表示，不使用 `\\n`。  \n    * 内容过长时，每个事件之间用 `<br>` 分隔，确保可读性。  \n\n# 输出模版  \n（1）  \n事件类型：[例如：法律与合规风险]  \n事件描述：[例如：公司因环保违规被当地生态环境局处以80万元罚款]  \n发生时间：[例如：2023-11-15]  \n信息来源：[例如：行政处罚决定书]  \n<br>  \n（2）  \n事件类型：[例如：重大经营变动]  \n事件描述：[例如：实控人将其持有的60%股权转让给第三方投资机构]  \n发生时间：[例如：2024年Q1]  \n信息来源：[例如：企业工商变更记录]  \n\n# 要求  \n通读用户提供的原始文本，严格依据上述规则提取并结构化关键事件，仅输出结果。"
-        - role: user
-          text: 请根据指令执行。
-      position:
-        x: 200
-        y: 400
-    - id: classify_feedback_type
-      type: custom
-      data:
-        title: 判断反馈类型
-        conditions:
-        - id: condition_1
-          expression: len(extract_key_events.key_events) > 0
-          name: 存在关键事件（投诉类）
-        - id: condition_2
-          expression: len(extract_key_events.key_events) == 0 and "建议" in preprocess_clean.cleaned_text or "希望" in preprocess_clean.cleaned_text
-          name: 无关键事件但含建议词（建议类）
-        - id: condition_3
-          expression: 'True'
-          name: 其他类型
+        title: 是否涉及退款
+        desc: ''
         type: if-else
+        logical_operator: and
+        conditions:
+        - id: 'true'
+          variable_selector:
+          - start
+          - query
+          comparison_operator: contains
+          value: 退款
+          varType: string
+    - id: check_urgency
+      type: custom
+      position:
+        x: 400
+        y: 0
+      data:
+        title: 是否紧急
+        desc: ''
+        type: if-else
+        logical_operator: and
+        conditions:
+        - id: 'true'
+          variable_selector:
+          - start
+          - query
+          comparison_operator: contains
+          value: 紧急
+          varType: string
+    - id: handle_refund
+      type: custom
+      position:
+        x: 0
+        y: 200
+      data:
+        title: 处理退款请求
+        desc: ''
+        type: llm
+        model:
+          provider: openai
+          name: gpt-4o
+          mode: chat
+        vision:
+          enabled: false
+        memory:
+          window:
+            enabled: false
+            size: 10
+        context:
+          enabled: false
+          variable_selector: []
+        prompt_template:
+        - role: system
+          text: 你是一名专业的客服代表，专门处理用户的退款请求。请根据用户提供的信息，确认订单状态并提供清晰的退款指引。
+        - role: user
+          text: '{{#start.query#}}'
+    - id: handle_urgent
+      type: custom
       position:
         x: 200
-        y: 550
-    - id: analyze_complaint
-      type: custom
+        y: 200
       data:
-        title: 投诉深度分析
+        title: 处理紧急问题
+        desc: ''
+        type: llm
         model:
           provider: openai
           name: gpt-4o
           mode: chat
-          parameters:
-            temperature: 0.2
-            max_tokens: 800
-        prompt:
-          system: 你是一名资深客户体验专家。请基于以下关键事件列表，分析根本原因、影响程度，并提出3条可操作的改进建议。输出必须为JSON，包含字段：root_cause, severity (high/medium/low), recommendations (字符串列表)。
-          user: '关键事件: {{#extract_key_events.key_events#}}'
         vision:
           enabled: false
-          configs:
-            variable_selector: []
         memory:
-          enabled: false
           window:
             enabled: false
-            size: 50
+            size: 10
         context:
           enabled: false
           variable_selector: []
-        structured_output:
-          enabled: false
-        variables:
-        - variable: complaint_analysis
-          type: object
-        type: llm
         prompt_template:
         - role: system
-          text: "# 角色  \n资深文本清洗工程师（专注金融尽调文档预处理）  \n\n# 目标  \n您的任务是对用户提供的原始OCR或扫描文本进行**精准降噪**，剔除无关、冗余、格式错乱或非业务相关内容，仅保留与企业尽职调查直接相关的有效信息片段。  \n\n# 核心任务  \n请执行以下三步操作：  \n\n1. **噪声识别 (Noise Identification)**：  \n    * **格式噪声**：删除页眉页脚、页码、水印、扫描黑边、重复换行、乱码字符（如“□”、“■”、“”）、OCR识别错误导致的无意义符号串。  \n    * **内容噪声**：剔除与企业经营、财务、信用、担保、资产等尽调维度无关的内容，例如广告语、免责声明、法律条文模板、通用合同条款、非目标主体信息。  \n    * **冗余噪声**：合并重复段落、去除空行堆叠、简化过度换行，确保语义连贯。  \n\n2. **语义保全 (Semantic Preservation)**：  \n    * 保留所有涉及以下要素的原始表述：  \n        - 企业名称、统一社会信用代码、实控人姓名  \n        - 财务数据（销售额、负债、净资产、流水、应收账款等）  \n        - 担保人、抵押物、关联方信息  \n        - 征信记录、涉诉、行政处罚  \n        - 经营模式、客户结构、行业风险描述  \n    * **严禁改写、概括或解释原文**，仅做删减与格式规整。  \n\n3. **输出净化 (Output Sanitization)**：  \n    * 合并碎片化句子为完整语句（仅当上下文明确可连贯时）。  \n    * 统一数字格式（如“10,000元” → “10000元”），但**不改变数值本身**。  \n    * 保留原始时间、金额、比例等关键数据的精确表达。  \n\n# 写作约束  \n1. **输出格式**：  \n    * 仅输出清洗后的纯文本，**禁止添加任何标题、说明、注释或总结**。  \n    * **禁止输出分析过程、判断理由或中间步骤**。  \n    * 换行符用 `<br>` 表示，不使用 `\\n` 或 Markdown 换行。  \n2. **内容纪律**： \
-            \ \n    * 若整段内容均为噪声，则整段删除，**不得留空行或占位符**。  \n    * 若原文存在模糊但可能相关的信息（如“某供应商”、“部分客户”），**予以保留**，不因模糊而删除。  \n    * **严禁编造、补全或推测缺失内容**。  \n3. **专业底线**：  \n    * 不得引入任何非原文词汇，包括“根据材料显示”、“可见”、“值得注意的是”等引导语。  \n    * 禁止使用 `**`、`##`、 等 Markdown 元素。  \n\n# 要求  \n直接输出降噪后的干净文本，确保其可直接作为下游尽调分析节点的输入源。"
+          text: 你正在处理一个标记为紧急的用户问题。请立即响应，提供最高优先级的支持，并确保用户情绪得到安抚。
         - role: user
-          text: 请根据指令执行。
-      position:
-        x: 50
-        y: 700
-    - id: analyze_suggestion
+          text: '{{#start.query#}}'
+    - id: handle_general
       type: custom
+      position:
+        x: 400
+        y: 200
       data:
-        title: 建议价值评估
+        title: 处理一般咨询
+        desc: ''
+        type: llm
         model:
           provider: openai
           name: gpt-4o
           mode: chat
-          parameters:
-            temperature: 0.4
-            max_tokens: 600
-        prompt:
-          system: 你是一名产品创新顾问。请评估以下用户建议的可行性、潜在价值和实施优先级。输出为JSON，包含字段：feasibility (high/medium/low), potential_value (high/medium/low), priority (urgent/high/medium/low), summary。
-          user: '用户原文: {{#preprocess_clean.cleaned_text#}}'
         vision:
           enabled: false
-          configs:
-            variable_selector: []
         memory:
-          enabled: false
           window:
             enabled: false
-            size: 50
+            size: 10
         context:
           enabled: false
           variable_selector: []
-        structured_output:
-          enabled: false
-        variables:
-        - variable: suggestion_evaluation
-          type: object
-        type: llm
         prompt_template:
         - role: system
-          text: "# 角色  \n资深风险穿透分析师（专注股权结构、资金流向与隐性关联识别）  \n\n# 目标  \n您的任务是基于提供的企业全套原始素材（工商登记、股东名册、银行流水、关联方声明、公开舆情），执行**风险穿透分析**，揭示实际控制人、隐性债务、资金挪用及潜在关联交易等深层风险。  \n\n# 核心任务  \n请对原始信息进行穿透式扫描，逻辑转化为以下两部分内容：  \n\n1. **穿透路径识别 (Penetration Path Identification)**：  \n    * **股权穿透**：逐层追溯至自然人或国资主体，识别代持、交叉持股、一致行动人安排；若存在多层嵌套（如有限合伙→SPV→境外BVI），需明确最终受益人（UBO）。  \n    * **资金穿透**：分析大额异常流水（单笔≥净资产5%或无商业实质），识别资金归集、体外循环、关联方占款或抽逃资本行为。  \n    * **担保/负债穿透**：核查对外担保是否未披露、是否存在互保圈、或通过关联方隐匿表外负债。  \n    * **经营穿透**：验证主要客户/供应商是否为关联方伪装（如同一注册地址、共用联系方式、交易价格偏离市场）。  \n\n2. **风险定性与缓释建议 (Risk Qualification & Mitigation)**：  \n    * **控制权风险**：若实控人模糊或多头控制，建议“要求签署一致行动协议”或“限制表决权”。  \n    * **资金挪用风险**：若发现资金流向非经营用途，建议“设立共管账户”、“按项目进度放款”或“要求提供资金用途凭证”。  \n    * **隐性关联风险**：若识别出未披露关联方，建议“纳入统一授信管理”、“追加该关联方连带责任担保”。  \n    * **结构复杂性风险**：若架构超过3层且无合理商业目的，建议“简化股权结构”或“提供每层股东的出资来源证明”。  \n\n# 写作约束  \n1. **格式复刻（严格执行）**：  \n    * **必须**使用中文序号 `（1）` 和 `（2）` 作为大标题。  \n    * **必须**使用 `1. ` `2. ` 作为小点编号。  \n    * **严禁**使用 Markdown 的 `**加粗**` 或 `## 标题`，仅使用纯文本换行。\
-            \  \n2. **内容转化逻辑**：  \n    * **不要**仅复述事实，要转化为“穿透语言”。  \n        * *Bad:* 股东A持有50%，股东B持有50%。  \n        * *Good:* 股权结构高度分散，无单一控制人，存在公司治理僵局风险。  \n    * **不要**编造穿透结论。若材料无法穿透至自然人（如境外主体无披露），应写“穿透路径在[XX层级]中断，无法确认最终受益人”。  \n3. **额外补充**：  \n    * 不作任何交互描述，直接生成结果  \n    * 禁止输出和markdown  \n    * 换行符用<br>来表示，不使用\\n  \n    * 内容过长时请合理分段行换  \n\n# 输出模版  \n（1）穿透发现：  \n    1. [穿透点1，如：通过股东C向上穿透两层，最终受益人为自然人XXX，其同时控制同业竞争企业YYY……]  \n    2. [穿透点2，如：2023年Q3向Z公司转账800万元，无合同支撑，疑似关联方资金占用……]  \n    3. [穿透点3，如：主要供应商ABC与借款人注册地址相同，存在虚构交易虚增流水嫌疑……]  \n\n（2）缓释建议：  \n    1. [控制权措施，如：要求实控人XXX签署一致行动协议，明确控制权归属。]  \n    2. [资金监管措施，如：对借款人账户实施受托支付，大额支出需提供发票及合同。]  \n    3. [关联管理措施，如：将Z公司纳入关联方名单，其往来款纳入统一授信额度管控。]  \n\n# 要求  \n读取用户提供的原始OCR文本，执行穿透分析，仅输出符合上述模版的风险发现与缓释建议。禁止输出分析过程、假设或推测性结论。"
+          text: 你是一名友好且知识渊博的客服助手，负责回答用户的常规问题。请保持专业、耐心，并提供准确的信息。
         - role: user
-          text: 请根据指令执行。
-      position:
-        x: 350
-        y: 700
-    - id: handle_other
-      type: custom
-      data:
-        title: 标记为其他类型
-        assignments:
-        - variable: other_result
-          value: '{"category": "other", "note": "未识别为投诉或建议"}'
-        variables:
-        - variable: other_result
-          type: string
-        type: variable-assigner
-      position:
-        x: 650
-        y: 700
-    - id: aggregate_results
-      type: custom
-      data:
-        title: 聚合分析结果
-        template: |
-          {
-            "original_input": "{{#start.input_text#}}",
-            "cleaned_text": "{{#preprocess_clean.cleaned_text#}}",
-            "feedback_category": "{{#if {{#classify_feedback_type.branch_id#}} == 'is_complaint'}}complaint{{/if}}{{#if {{#classify_feedback_type.branch_id#}} == 'is_suggestion'}}suggestion{{/if}}{{#if {{#classify_feedback_type.branch_id#}} == 'is_other'}}other{{/if}}",
-            {{#if {{#classify_feedback_type.branch_id#}} == 'is_complaint'}}
-            "analysis": {{#analyze_complaint.complaint_analysis#}},
-            {{/if}}
-            {{#if {{#classify_feedback_type.branch_id#}} == 'is_suggestion'}}
-            "analysis": {{#analyze_suggestion.suggestion_evaluation#}},
-            {{/if}}
-            {{#if {{#classify_feedback_type.branch_id#}} == 'is_other'}}
-            "analysis": {{#handle_other.other_result#}},
-            {{/if}}
-            "processed_at": "{{now}}"
-          }
-        variables:
-        - variable: final_output
-          type: string
-        type: template-transform
-      position:
-        x: 350
-        y: 900
+          text: '{{#start.query#}}'
     - id: end
       type: custom
+      position:
+        x: 0
+        y: 400
       data:
         title: 结束
-        variables:
-        - variable: result
-          type: string
-          value: '{{#aggregate_results.final_output#}}'
+        desc: ''
         type: end
-        outputs: []
-      position:
-        x: 350
-        y: 1050
+        outputs:
+        - variable: response
+          value_selector:
+          - handle_refund
+          - text
+          value_type: string
+        - variable: response
+          value_selector:
+          - handle_urgent
+          - text
+          value_type: string
+        - variable: response
+          value_selector:
+          - handle_general
+          - text
+          value_type: string
     edges:
     - id: edge_0
       source: start
-      target: preprocess_clean
-      sourceHandle: output
-      targetHandle: input
+      target: check_refund
+      sourceHandle: source
+      targetHandle: target
       type: custom
     - id: edge_1
-      source: preprocess_clean
-      target: extract_key_events
-      sourceHandle: output
-      targetHandle: input
+      source: check_refund
+      target: handle_refund
+      sourceHandle: 'true'
+      targetHandle: target
       type: custom
     - id: edge_2
-      source: extract_key_events
-      target: classify_feedback_type
-      sourceHandle: output
-      targetHandle: input
+      source: check_refund
+      target: check_urgency
+      sourceHandle: 'false'
+      targetHandle: target
       type: custom
     - id: edge_3
-      source: classify_feedback_type
-      sourceHandle: is_complaint
-      target: analyze_complaint
-      targetHandle: input
+      source: check_urgency
+      target: handle_urgent
+      sourceHandle: 'true'
+      targetHandle: target
       type: custom
     - id: edge_4
-      source: classify_feedback_type
-      sourceHandle: is_suggestion
-      target: analyze_suggestion
-      targetHandle: input
+      source: check_urgency
+      target: handle_general
+      sourceHandle: 'false'
+      targetHandle: target
       type: custom
     - id: edge_5
-      source: classify_feedback_type
-      sourceHandle: is_other
-      target: handle_other
-      targetHandle: input
+      source: handle_refund
+      target: end
+      sourceHandle: source
+      targetHandle: target
       type: custom
     - id: edge_6
-      source: analyze_complaint
-      target: aggregate_results
-      sourceHandle: output
-      targetHandle: input
+      source: handle_urgent
+      target: end
+      sourceHandle: source
+      targetHandle: target
       type: custom
     - id: edge_7
-      source: analyze_suggestion
-      target: aggregate_results
-      sourceHandle: output
-      targetHandle: input
-      type: custom
-    - id: edge_8
-      source: handle_other
-      target: aggregate_results
-      sourceHandle: output
-      targetHandle: input
-      type: custom
-    - id: edge_9
-      source: aggregate_results
+      source: handle_general
       target: end
-      sourceHandle: output
-      targetHandle: input
+      sourceHandle: source
+      targetHandle: target
       type: custom

@@ -1,0 +1,114 @@
+{
+  "__meta__": {
+    "version": "0.1.5",
+    "description": "Verified Dify DSL Node Specifications (Legacy 0.5.x Compatible). Use these structures to avoid frontend crashes and Sentry errors."
+  },
+  "start_node": {
+    "type": "start",
+    "data": {
+      "title": "Start",
+      "type": "start",
+      "variables": [
+        {
+          "variable": "input_text",
+          "label": "Input Text",
+          "type": "text-input",
+          "required": true,
+          "options": [],
+          "max_length": 48
+        }
+      ]
+    }
+  },
+  "llm_node": {
+    "type": "llm",
+    "data": {
+      "title": "LLM",
+      "type": "llm",
+      "model": {
+        "provider": "openai",
+        "name": "gpt-4o",
+        "mode": "chat"
+      },
+      "prompt_template": [
+        {
+          "role": "system",
+          "text": "..."
+        },
+        {
+          "role": "user",
+          "text": "{{#start.input_text#}}"
+        }
+      ],
+      "vision": {"enabled": false},
+      "memory": {"window": {"enabled": false, "size": 10}},
+      "context": {"enabled": false, "variable_selector": []}
+    }
+  },
+  "code_node": {
+    "type": "code",
+    "data": {
+      "title": "Code",
+      "type": "code",
+      "code": "def main(arg1):\n    return {'result': arg1}",
+      "code_language": "python3",
+      "variables": [
+        {
+          "variable": "arg1",
+          "value_selector": ["start", "input_text"]
+        }
+      ],
+      "outputs": {
+        "result": {
+          "type": "string",
+          "children": null
+        }
+      }
+    }
+  },
+  "template_node": {
+    "type": "template-transform",
+    "data": {
+      "title": "Template",
+      "type": "template-transform",
+      "template": "Hello {{name}}",
+      "variables": [
+        {
+          "variable": "name",
+          "value_selector": ["llm", "text"]
+        }
+      ]
+    }
+  },
+  "if_else_node": {
+    "type": "if-else",
+    "data": {
+      "title": "If-Else",
+      "type": "if-else",
+      "logical_operator": "and",
+      "conditions": [
+        {
+          "id": "true",
+          "variable_selector": ["start", "input_text"],
+          "comparison_operator": "contains",
+          "value": "keyword",
+          "varType": "string"
+        }
+      ]
+    }
+  },
+  "end_node": {
+    "type": "end",
+    "data": {
+      "title": "End",
+      "type": "end",
+      "outputs": [
+        {
+          "variable": "result",
+          "value_selector": ["llm", "text"],
+          "value_type": "string"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,57 @@
+kind: app
+version: 0.1.5
+app:
+  name: Debug_V1_Linear
+  description: 根据用户输入自动判断是否涉及退款，并分别处理。
+  mode: workflow
+  icon: 🤖
+  icon_background: '#FFEAD5'
+workflow:
+  graph:
+    nodes:
+    - id: start
+      type: custom
+      position:
+        x: 0
+        y: 0
+      data:
+        title: 开始
+        desc: ''
+        type: start
+        variables:
+        - name: query
+          type: string
+          description: null
+    - id: end
+      type: custom
+      position:
+        x: 200
+        y: 200
+      data:
+        title: 结束
+        desc: ''
+        type: end
+        outputs:
+        - variable: res
+          value_selector:
+          - handle_refund
+          - text
+          value: '{{#handle_refund.text#}}'
+        - variable: res
+          value_selector:
+          - handle_chat
+          - text
+          value: '{{#handle_chat.text#}}'
+    edges:
+    - id: e1
+      source: start
+      target: preprocess
+      sourceHandle: source
+      targetHandle: target
+      type: custom
+    - id: e2
+      source: preprocess
+      target: end
+      sourceHandle: source
+      targetHandle: target
+      type: custom

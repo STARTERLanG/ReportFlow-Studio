@@ -1,0 +1,67 @@
+kind: app
+version: 0.5.0
+app:
+  name: Test_A_Linear
+  mode: workflow
+  icon: 🤖
+  icon_background: "#FFEAD5"
+workflow:
+  graph:
+    nodes:
+    - id: start
+      type: custom
+      data:
+        title: 开始
+        variables:
+        - variable: input_text
+          type: string
+        type: start
+      position: {x: 0, y: 0}
+    - id: preprocess
+      type: custom
+      data:
+        title: 预处理
+        code: |
+          def main(input_text):
+              return {"text": input_text}
+        variables:
+        - variable: input_text
+          value_selector: [start, input_text]
+        type: code
+      position: {x: 200, y: 0}
+    - id: llm
+      type: custom
+      data:
+        title: LLM
+        model: {provider: openai, name: gpt-4o, mode: chat}
+        prompt_template:
+        - role: user
+          text: "{{#preprocess.text#}}"
+        type: llm
+      position: {x: 400, y: 0}
+    - id: end
+      type: custom
+      data:
+        title: 结束
+        type: end
+        outputs: []
+      position: {x: 600, y: 0}
+    edges:
+    - id: e1
+      source: start
+      sourceHandle: source
+      target: preprocess
+      targetHandle: target
+      type: custom
+    - id: e2
+      source: preprocess
+      sourceHandle: source
+      target: llm
+      targetHandle: target
+      type: custom
+    - id: e3
+      source: llm
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom

@@ -1,0 +1,76 @@
+kind: app
+version: 0.5.0
+app:
+  name: Test_B_Branch
+  mode: workflow
+  icon: 🤖
+  icon_background: "#FFEAD5"
+workflow:
+  graph:
+    nodes:
+    - id: start
+      type: custom
+      data:
+        title: 开始
+        variables:
+        - variable: input_text
+          type: string
+        type: start
+      position: {x: 0, y: 0}
+    - id: check
+      type: custom
+      data:
+        title: 分支
+        type: if-else
+        cases:
+        - case_id: "true"
+          logical_operator: "and"
+          conditions:
+          - id: c1
+            variable_selector: [start, input_text]
+            comparison_operator: contains
+            value: "a"
+            varType: string
+      position: {x: 200, y: 0}
+    - id: llm_true
+      type: custom
+      data:
+        title: LLM True
+        model: {provider: openai, name: gpt-4o, mode: chat}
+        prompt_template:
+        - role: user
+          text: "True path"
+        type: llm
+      position: {x: 400, y: -100}
+    - id: end
+      type: custom
+      data:
+        title: 结束
+        type: end
+        outputs: []
+      position: {x: 600, y: 0}
+    edges:
+    - id: e1
+      source: start
+      sourceHandle: source
+      target: check
+      targetHandle: target
+      type: custom
+    - id: e2
+      source: check
+      sourceHandle: "true"
+      target: llm_true
+      targetHandle: target
+      type: custom
+    - id: e3
+      source: check
+      sourceHandle: "false"
+      target: end
+      targetHandle: target
+      type: custom
+    - id: e4
+      source: llm_true
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom

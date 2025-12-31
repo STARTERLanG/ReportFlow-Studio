@@ -1,6 +1,8 @@
 import os
+
 import pytest
 from fastapi.testclient import TestClient
+
 from backend.app.main import app
 
 client = TestClient(app)
@@ -58,8 +60,6 @@ def test_invalid_file_type():
     """
     测试上传非 docx 文件。
     """
-    response = client.post(
-        "/templates/parse", files={"file": ("test.txt", b"dummy content", "text/plain")}
-    )
+    response = client.post("/templates/parse", files={"file": ("test.txt", b"dummy content", "text/plain")})
     assert response.status_code == 400
     assert "只支持 .docx" in response.json()["detail"]

@@ -1,10 +1,12 @@
 import os
 import shutil
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from backend.app.services.template_service import TemplateService
-from backend.app.schemas.template import TemplateParseResponse
-from backend.app.logger import logger
 from tempfile import NamedTemporaryFile
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from backend.app.logger import logger
+from backend.app.schemas.template import TemplateParseResponse
+from backend.app.services.template_service import TemplateService
 
 router = APIRouter(prefix="/templates", tags=["Templates"])
 template_service = TemplateService()
@@ -27,10 +29,8 @@ async def parse_template(file: UploadFile = File(...)):
         tasks = template_service.parse_and_decompose(tmp_path)
         os.unlink(tmp_path)
 
-        return TemplateParseResponse(
-            filename=file.filename, tasks=tasks, total_tasks=len(tasks)
-        )
+        return TemplateParseResponse(filename=file.filename, tasks=tasks, total_tasks=len(tasks))
 
     except Exception as e:
         logger.exception(f"解析模板失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"模板解析过程中发生错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"模板解析过程中发生错误: {str(e)}") from e
