@@ -55,7 +55,7 @@ ignore = [
 ]
 
 # 针对特定文件的忽略规则
-extend-per-file-ignores = { "backend/app/api/*.py" = ["B008"], "backend/cli.py" = ["B008"], "scripts/*.py" = ["B008", "E402"] }
+extend-per-file-ignores = { "app/server/app/api/*.py" = ["B008"], "app/server/cli.py" = ["B008"], "scripts/*.py" = ["B008", "E402"] }
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

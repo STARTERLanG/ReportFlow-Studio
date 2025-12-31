@@ -5,8 +5,8 @@ import sys
 # 确保能找到 backend 模块
 sys.path.append(os.getcwd())
 
-from backend.agents.workflows.yaml_generator import YamlAgentService
-from backend.app.utils.network import configure_network_settings
+from agents.workflows.dify_yaml_generator import YamlAgentService
+from app.server.utils.network import configure_network_settings
 
 # 初始化网络配置
 configure_network_settings()

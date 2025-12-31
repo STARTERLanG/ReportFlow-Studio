@@ -3,8 +3,8 @@ import asyncio
 import pytest
 import yaml
 
-from backend.agents.workflows.yaml_generator import YamlAgentService
-from backend.app.config import settings
+from agents.workflows.dify_yaml_generator import YamlAgentService
+from app.server.config import settings
 
 # 检查是否有 API Key，如果没有则跳过测试
 # 这是一个简单的检查，防止在没有配置环境的 CI/CD 中报错
