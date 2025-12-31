@@ -15,4 +15,4 @@ wheels/
 knowledge_base/
 .env
 
-output/
+output

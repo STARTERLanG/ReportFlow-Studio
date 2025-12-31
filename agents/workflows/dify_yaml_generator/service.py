@@ -1,3 +1,5 @@
+import asyncio
+
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph  # type: ignore
 from pydantic import SecretStr
@@ -91,12 +93,21 @@ class YamlAgentService:
         except Exception:
             return ""
 
-    async def generate_yaml(self, user_request: str, context: str = "") -> str:
+    async def generate_yaml(self, user_request: str, context: str = "", status_callback=None) -> str:
+        async def notify(msg: str):
+            if status_callback:
+                if asyncio.iscoroutinefunction(status_callback):
+                    await status_callback(msg)
+                else:
+                    status_callback(msg)
+
+        await notify("🚀 启动 YAML 生成工作流...")
         logger.info("Start YAML Generation Workflow...")
 
         rag_context = ""
         if self.rag_service:
             try:
+                await notify("🔍 正在从知识库检索参考案例...")
                 refs = self.rag_service.search(user_request, k=2)
                 rag_context = "\n".join([f"--- Ref ---\n{r.page_content}" for r in refs])
             except Exception as e:
@@ -114,5 +125,13 @@ class YamlAgentService:
             "retry_count": 0,
         }
 
+        # 为了捕获内部节点的日志，我们可以在这里做简单的拦截或让节点自己调用 callback
+        # 简单起见，我们在主要步骤前后手动发送通知
+        await notify("📋 正在制定执行计划...")
         final = await self.app.ainvoke(initial_state)
+
+        if final.get("validation_errors"):
+            await notify(f"⚠️ 校验发现错误，已尝试修复: {len(final['validation_errors'])} 个问题")
+
+        await notify("✨ 工作流组装完成！")
         return final.get("final_yaml", "# Generation Failed")
