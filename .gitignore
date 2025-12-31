@@ -12,7 +12,7 @@ wheels/
 .ruff_cache/
 .pytest_cache/
 
-knowledge_base
+knowledge_base/
 .env
 
 output/
