@@ -1,122 +1,77 @@
 # 产品需求文档 (PRD): ReportFlow Studio (智能体编排工作台)
 
-| **项目名称** | ReportFlow Studio                               | **版本**     | **V3.0 (AI-First Edition)** |
-| ------------ | ----------------------------------------------- | ------------ | --------------------------- |
-| **核心逻辑** | AI 自动决策 + 人工审核/微调                     | **交付形态** | 现代化 Web 应用             |
-| **关键特性** | Word 解析、全自动蓝图生成、可追溯分析、历史回溯 | **目标用户** | 报告撰写专家 / 方案工程师   |
+| **项目名称** | ReportFlow Studio                               | **版本**     | **V3.1 (LangGraph Edition)** |
+| ------------ | ----------------------------------------------- | ------------ | ---------------------------- |
+| **核心逻辑** | AI 规划 (LangGraph) + 确定性构建 (Builder)      | **交付形态** | CLI / Web API                |
+| **关键特性** | 自然语言生成、自动校验修复、双层架构设计        | **目标用户** | Dify 开发者 / 方案工程师     |
 
-## 1. 核心流程图 (Revised User Flow)
+## 1. 核心流程图 (Architecture)
 
-系统由“手动编排”转变为“AI 生成 -> 人工确认”。
+系统采用 **LangGraph** 驱动的状态机架构，实现从“模糊需求”到“精准代码”的闭环。
 
-1. **项目初始化**：新建项目，上传 Word 模板与资料包。
-2. **AI 全自动规划 (The Black Box)**：
-   - 系统后台自动解析 Word 结构，拆分成不同的内容字段。
-   - 系统自动扫描资料内容。
-   - **AI 决策引擎**计算最优路径：哪个字段(模板) -> 对应哪些文件(资料) -> 用哪个智能体(需生成)。
-   - 生成初始的**执行蓝图（Blueprint Graph）**。
-3. **交互式审查与修正 (The White Box)**：
-   - 用户看到 AI 生成好的可视化连线图。
-   - **追溯分析**：用户点击某条连线，系统展示 AI 的思考依据（如：“因为字段名为‘审计意见’，且资料A中包含‘无保留意见’关键词，故建立连接”）。
-   - **人工微调**：用户修改错误的连线，或修改 AI 拟定的连线智能体。
-4. **生成交付**：确认无误后，系统生成多个 Dify YML 代码并归档。
-
-------
+```mermaid
+graph TD
+    User[用户需求] --> Planner[Planner: 制定生成计划]
+    Planner --> Architect[Architect: 设计逻辑蓝图 (Blueprint)]
+    Architect --> PromptExpert[PromptExpert: 优化提示词]
+    PromptExpert --> Assembler[Assembler: 确定性构建 (Builder)]
+    Assembler --> Validator{Validator: DSL 校验}
+    
+    Validator -- Pass --> Final[输出 Dify YAML]
+    Validator -- Fail --> Repairer[Repairer: 智能修复]
+    Repairer --> Validator
+```
 
 ## 2. 功能需求详情 (Functional Requirements)
 
-### 2.1 智能蓝图决策引擎 (AI Blueprint Engine)
+### 2.1 智能蓝图决策引擎 (LangGraph Engine)
 
-- **描述**：这是系统的“大脑”，负责在用户看到界面之前完成所有思考。
-- **核心能力**：
-  - **语义对齐算法**：自动计算 `Word模板字段` 与 `资料文件内容` 的向量相似度。
-  - **任务聚类**：AI 自动判断哪些内容属于同一类（例如：将 Word 第3页的“资产总额”和第5页的“负债总额”归类为“财务类”），并将它们分配给同一个“财务分析 Agent”，避免生成上百个零散 Agent。
-  - **Prompt 预撰写**：AI 根据字段上下文，自动为每个 Agent 撰写初始 Prompt。
+- **描述**：基于 `langgraph` 的有向循环图（DAG），负责控制生成的全流程。
+- **状态节点**：
+  - **Planner**：分析用户需求，拆解为 `Design` -> `Prompt` -> `Assemble` 的执行步骤。
+  - **Architect**：生成中间态的 JSON 蓝图 (Blueprint)，不直接生成 YAML，专注于逻辑正确性。
+  - **PromptExpert**：遍历蓝图中的 LLM 节点，根据上下文自动优化 System Prompt。
+  - **Repairer**：当校验失败时，读取错误日志并尝试修复 YAML 结构。
 
-### 2.2 可视化审查界面 (Interactive Review Board)
+### 2.2 确定性构建器 (Deterministic Builder)
 
-- **描述**：美观、现代化的可视化看板，用于“验收”AI 的工作成果。
-- **UI 交互设计**：
-  - **置信度高亮 (Confidence Heatmap)**：
-    - **绿色实线**：AI 很有把握（置信度 > 90%）。
-    - **黄色虚线**：AI 存疑，提示用户重点检查（如：资料中未找到明确匹配，使用了推测）。
-  - **可解释性弹窗 (Traceability)**：
-    - 当用户鼠标悬停在某个 Agent 节点上时，显示 **“决策依据”**：
-    - *“已分配字段：[营业收入, 净利润]。依据：检测到《审计报告.pdf》第 4-6 页包含相关财务表格。”*
-  - **拖拽修正**：用户若发现 AI 连错了（比如把“法人信息”连到了“财务报告”），直接拖断连线，重新连到“营业执照”即可。
-  - **Prompt 快速编辑**：侧边栏支持直接修改 AI 生成的 Prompt 文本，支持版本对比。
-
-### 2.3 Word 模板解析与回填逻辑 (Template Parsing)
-
-- **描述**：深度解析 `模板` 文件结构。
+- **描述**：为了解决 LLM 直接生成 YAML 格式不稳定的问题，采用 **Blueprint + Builder** 模式。
 - **功能点**：
-  - **结构化提取**：自动识别 模板 中的段落组成
-  - **上下文保留**：在提取字段时，同时记录该字段在 Word 中的“前文”和“后文”（例如表格的表头）以及本字段的内容要求，这些信息将作为 Prompt 的一部分传给 Dify 设计智能体，提高准确率。
+  - **DifyBuilder**：一个 Python 类，接收 JSON 蓝图，通过硬编码逻辑生成标准的 Dify YAML。
+  - **版本兼容**：自动处理 Dify 0.5.x/0.6.x 的 DSL 差异（如 If-Else 节点的二元限制、Code 节点的 Output 字典格式）。
+  - **变量自动映射**：支持 `@{node.var}` 语法，自动转换为 Dify 的 `{{#node.var#}}` 格式。
 
-### 2.4 项目档案库 (Project Archive)
+### 2.3 自动校验与自愈 (Self-Healing)
 
-- **描述**：完整的历史记录管理。
-- **功能点**：
-  - **自动快照**：每次生成代码前，自动保存当前的蓝图状态。
-  - **历史回溯**：用户可以查看上个月做的“尽调报告项目”，复用当时的蓝图结构，只需替换新的资料包即可生成新代码。
+- **描述**：生成的代码必须经过严格校验才能交付。
+- **流程**：
+  1. **DSL Validator**：加载生成的 YAML，检查必填字段、节点连接完整性、变量引用有效性。
+  2. **Feedback Loop**：如果有错误，将错误信息回传给 `Repairer` 智能体，进行最多 3 次的自动修复尝试。
 
-### 2.5 代码生成 (Code Synthesis)
+### 2.4 知识库检索 (RAG)
 
-- 保持原设计，根据最终确认的蓝图图谱，通过 Jinja2 模板引擎输出多个标准的 `dify_workflow.yml`。
-
-------
-
-## 3. 界面设计风格 (UI/UX Guidelines)
-
-为了体现“辅助专家”的定位，界面不能简陋，需要传递**秩序感**和**智能感**。
-
-- **布局架构**：
-  - **顶栏**：项目名称、状态（规划中 / 已生成）、导出按钮。
-  - **主画布 (Canvas)**：
-    - 采用 **Sankey Diagram (桑基图)** 或 **DAG (有向无环图)** 布局。
-    - 左侧（资料源） -> 中间（Agent集群） -> 右侧（Word目标位）。
-    - 线条流动应平滑，避免杂乱交叉（Auto-Layout 算法）。
-- **配色方案**：
-  - **科技蓝/深空灰**为主色调。
-  - **状态色**：
-    - 绿色：匹配成功 / 高置信度。
-    - 橙色：需要人工确认 / 低置信度。
-    - 红色：缺失资料 / 错误。
+- **描述**：复用现有的 RAG 模块，检索相似的 YAML 案例作为 Context。
+- **策略**：在 Planner 和 Architect 阶段注入参考案例，指导 AI 模仿优秀的编排模式。
 
 ------
 
-## 4. 技术栈精选 (Tech Stack)
+## 3. 待开发特性 (Roadmap)
 
-### 前端 (Frontend)
+### 3.1 Word 模板解析 (Pending)
+- *当前状态*：暂未实现。
+- *目标*：解析 Word 文档结构，自动提取字段并映射到 Dify 变量。
 
-- **Core Framework**: React 18
-- **Visualization**: **ReactFlow** (最推荐，专为节点连线设计，支持自定义节点组件) 或 **AntV X6**。
-- **UI Library**: **Arco Design** (字节跳动出品，风格较为现代、商务) 或 **Ant Design 5.0**。
-- **State Management**: Zustand (轻量级，适合管理蓝图这种复杂对象状态)。
-
-### 后端 (Backend)
-
-- **Core**: Python FastAPI
-- **AI Orchestration**: LangChain (用于由后端逻辑驱动的“思考过程”).
-- **Word Processing**: `python-docx`.
-- **Database**: SQLite (配合 SQLModel/SQLAlchemy ORM).
+### 3.2 可视化审查界面 (Pending)
+- *当前状态*：仅提供 API (`/yaml/generate`)。
+- *目标*：ReactFlow 前端，支持可视化拖拽修改 Blueprint。
 
 ------
 
-## 5. 开发第一步建议
+## 4. 技术栈 (Tech Stack)
 
-现在的核心难点转移到了 **2.1 智能蓝图决策引擎**。
-
-建议开发顺序：
-
-1. **POC (概念验证) 阶段**：
-   - 写一段 Python 脚本，输入 Word 和 PDF，让 GPT-4o 输出一个 JSON，这个 JSON 描述了“谁填谁”。
-   - 验证这个 JSON 的准确率是否能达到 70-80%（如果不准，界面再好看也没用）。
-2. **前端搭建**：
-   - 使用 ReactFlow 搭建一个只读的画布，把上面生成的 JSON 渲染出来。
-3. **交互完善**：
-   - 增加拖拽修改 JSON 的功能。
-4. **导出功能**：
-   - 根据最终 JSON 生成 YAML。
-
-这份文档现在是否完全契合你的构思？它强调了**AI 先行，人工把关**的工作模式。
+- **Orchestration**: LangGraph, LangChain
+- **LLM**: OpenAI / Aliyun Qwen (via OpenAI-Compatible API)
+- **Builder**: Python Pydantic (Blueprint Definition)
+- **Validation**: Custom Dify DSL Validator
+- **API**: FastAPI
+- **CLI**: Typer (Async Support)
