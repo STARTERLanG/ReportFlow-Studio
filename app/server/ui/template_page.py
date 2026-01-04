@@ -198,6 +198,103 @@ def render_template_page():
         ui.spinner(size="4rem", color="teal-500", thickness=2)
         ui.label("AI 正在解析业务逻辑...").classes("mt-6 text-xl font-bold text-slate-800")
 
+    def open_edit_dialog(index=None):
+        is_new = index is None
+        # 如果是新建，初始化一个空任务模板
+        if is_new:
+            task = {
+                "task_name": "新任务",
+                "type": "generation",  # 默认类型
+                "description": "",
+                "requirements": "",
+                "reference_content": ""
+            }
+        else:
+            task = state["tasks"][index]
+
+        with ui.dialog() as dialog, ui.card().classes("w-full max-w-2xl p-6"):
+            ui.label("新建任务" if is_new else "编辑任务").classes("text-xl font-bold mb-4")
+            
+            with ui.column().classes("w-full gap-4"):
+                name_input = ui.input("任务名称", value=task["task_name"]).classes("w-full")
+                
+                type_select = ui.select(
+                    {"extraction": "数据提取", "generation": "智能写作"}, 
+                    value=task["type"], 
+                    label="任务类型"
+                ).classes("w-full")
+                
+                desc_input = ui.textarea("任务描述", value=task.get("description", "")).classes("w-full").props("autogrow")
+                req_input = ui.textarea("执行要求", value=task.get("requirements", "")).classes("w-full").props("autogrow")
+                
+                # 动态内容容器
+                content_container = ui.column().classes("w-full")
+                
+                def update_content_fields():
+                    content_container.clear()
+                    with content_container:
+                        if type_select.value == "extraction":
+                            fields_str = ", ".join(task.get("fields", [])) if not is_new and "fields" in task else ""
+                            # 如果是新建且切到 extraction，fields_temp 可能还没值，默认为空
+                            current_val = task.get("fields_temp", fields_str)
+                            ui.textarea("待提取字段 (用逗号分隔)", value=current_val).bind_value(task, "fields_temp").classes("w-full").props("autogrow")
+                        else:
+                            ref_str = task.get("reference_content", "") if not is_new else ""
+                            current_val = task.get("ref_temp", ref_str)
+                            ui.textarea("参考原文内容", value=current_val).bind_value(task, "ref_temp").classes("w-full").props("autogrow")
+                
+                # 初始化临时变量
+                if not is_new:
+                    task["fields_temp"] = ", ".join(task.get("fields", []))
+                    task["ref_temp"] = task.get("reference_content", "")
+                else:
+                    task["fields_temp"] = ""
+                    task["ref_temp"] = ""
+                
+                type_select.on_value_change(update_content_fields)
+                update_content_fields() # 初始渲染
+
+            with ui.row().classes("w-full justify-end mt-6 gap-2"):
+                ui.button("取消", on_click=dialog.close).props("flat color=grey")
+                def save_changes():
+                    # 更新/填充数据
+                    task["task_name"] = name_input.value
+                    task["type"] = type_select.value
+                    task["description"] = desc_input.value
+                    task["requirements"] = req_input.value
+                    
+                    if task["type"] == "extraction":
+                        fields_raw = task.get("fields_temp", "")
+                        fields_raw = fields_raw.replace("，", ",")
+                        task["fields"] = [f.strip() for f in fields_raw.split(",") if f.strip()]
+                        task.pop("reference_content", None)
+                    else:
+                        task["reference_content"] = task.get("ref_temp", "")
+                        task.pop("fields", None)
+                    
+                    # 清理临时键
+                    task.pop("fields_temp", None)
+                    task.pop("ref_temp", None)
+                    
+                    if is_new:
+                        state["tasks"].append(task)
+                        ui.notify("新任务已添加", type="positive")
+                    else:
+                        ui.notify("任务已更新", type="positive")
+                    
+                    dialog.close()
+                    refresh_ui()
+                
+                ui.button("保存", on_click=save_changes).props("unelevated color=teal")
+        
+        dialog.open()
+
+    def delete_task(index):
+        # 简单确认 (这里直接删，实际项目可以加 Dialog 确认)
+        state["tasks"].pop(index)
+        ui.notify("任务已删除", type="negative")
+        refresh_ui()
+
     def refresh_ui():
         results_container.clear()
         overview_container.clear()
@@ -217,7 +314,7 @@ def render_template_page():
                     # 统计
                     with ui.row().classes("items-center gap-2"):
                         ui.label(str(len(state["tasks"]))).classes("font-bold text-xl text-teal-600")
-                        ui.label("个任务描述").classes("text-xs text-slate-500 font-bold")
+                        ui.label("个任务").classes("text-xs text-slate-500 font-bold")
 
                     ui.separator().props("vertical").classes("h-6 bg-slate-300")
 
@@ -241,9 +338,16 @@ def render_template_page():
                     ui.label(f"{i + 1:02d}").classes("index-label pt-8")
 
                     # 卡片
-                    with ui.element("div").classes("task-card-large p-8 flex flex-col gap-6 h-auto"):
+                    with ui.element("div").classes("task-card-large p-8 flex flex-col gap-6 h-auto relative group"):
+                        # 操作按钮组 (悬浮显示)
+                        with ui.row().classes("absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity gap-1"):
+                            with ui.button(icon="edit", on_click=lambda _, idx=i: open_edit_dialog(idx)).props("flat round color=grey-5 size=sm"):
+                                ui.tooltip("编辑任务")
+                            with ui.button(icon="delete", on_click=lambda _, idx=i: delete_task(idx)).props("flat round color=grey-5 size=sm"):
+                                ui.tooltip("删除任务")
+
                         # Card Header
-                        with ui.row().classes("w-full justify-between items-center"):
+                        with ui.row().classes("items-center gap-3 pr-20"): # 移除了 w-full justify-between，改为靠左紧凑排列
                             ui.label(task["task_name"]).classes("text-2xl font-bold text-slate-800 tracking-tight")
                             # 类型标签
                             with ui.element("div").classes(f"tag-pill {'tag-extract' if is_extract else 'tag-gen'}"):
@@ -289,6 +393,10 @@ def render_template_page():
                                 ui.label(task.get("reference_content", "")).classes(
                                     "text-xs text-slate-500 italic leading-loose p-4 bg-slate-50 rounded-xl border border-slate-100 break-words whitespace-pre-wrap"
                                 )
+            
+            # 底部添加按钮
+            with ui.button("添加新任务", icon="add", on_click=lambda: open_edit_dialog(None)).classes("w-full max-w-[880px] h-16 text-lg font-bold border-2 border-dashed border-slate-300 text-slate-400 hover:border-teal-500 hover:text-teal-500 hover:bg-teal-50 transition-colors rounded-2xl mt-4").props("flat"):
+                pass
 
     def export_data(fmt: str):
         if not state["tasks"]:
