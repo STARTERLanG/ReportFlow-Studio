@@ -25,11 +25,24 @@ async def parse_template(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
 
-        # 调用 AI 进行全量拆解
-        tasks = template_service.parse_and_decompose(tmp_path)
+        # 调用 AI 进行全量拆解 (返回 {'variables': [], 'tasks': []})
+        result = template_service.parse_and_decompose(tmp_path)
         os.unlink(tmp_path)
 
-        return TemplateParseResponse(filename=file.filename, tasks=tasks, total_tasks=len(tasks))
+        # 兼容处理：如果 service 返回的是旧版 list (极端异常情况)，做适配
+        if isinstance(result, list):
+            tasks = result
+            variables = []
+        else:
+            tasks = result.get("tasks", [])
+            variables = result.get("variables", [])
+
+        return TemplateParseResponse(
+            filename=file.filename,
+            tasks=tasks,
+            variables=variables,
+            total_tasks=len(tasks),
+        )
 
     except Exception as e:
         logger.exception(f"解析模板失败: {str(e)}")

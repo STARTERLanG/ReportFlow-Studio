@@ -51,19 +51,34 @@ def render_home_page():
                         ui.label("立即开始")
                         ui.icon("arrow_forward")
 
-            # 卡片 2: 知识库管理 (占位)
-            with ui.card().classes(
-                "group hover:shadow-xl transition-all duration-300 border-none bg-white p-0 overflow-hidden opacity-60"
+            # 卡片 2: Word 模板解析
+            with (
+                ui.card()
+                .classes(
+                    "group hover:shadow-xl transition-all duration-300 border-none bg-white p-0 overflow-hidden cursor-pointer"
+                )
+                .on("click", lambda: ui.navigate.to("/template-parser"))
             ):
-                with ui.column().classes("h-32 bg-slate-100 p-6 justify-between"):
-                    ui.icon("folder_open", size="2rem").classes("text-slate-400")
-                    ui.label("知识库").classes("text-slate-400 font-bold text-lg tracking-wide")
-                with ui.column().classes("p-6 gap-4"):
-                    ui.label("案例管理").classes("text-lg font-bold text-slate-400")
-                    ui.label("管理用于 RAG 检索的参考工作流案例库。").classes("text-sm text-slate-400 leading-relaxed")
-                    ui.label("Coming Soon").classes(
-                        "text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-500 self-start"
+                with ui.column().classes(
+                    "h-32 bg-gradient-to-br from-indigo-600 to-purple-700 p-6 justify-between relative overflow-hidden"
+                ):
+                    ui.icon("description", size="4rem").classes(
+                        "absolute -right-4 -bottom-4 text-white/20 group-hover:scale-110 transition-transform duration-500"
                     )
+                    ui.icon("document_scanner", size="2rem").classes("text-white")
+                    ui.label("模板解析器").classes("text-white font-bold text-lg tracking-wide")
+
+                with ui.column().classes("p-6 gap-4"):
+                    ui.label("智能文档结构化").classes("text-lg font-bold text-slate-800")
+                    ui.label("上传 Word 报告模板，自动拆解撰写任务与变量依赖。支持无占位符的语义识别。").classes(
+                        "text-sm text-slate-500 leading-relaxed"
+                    )
+
+                    with ui.row().classes(
+                        "items-center text-indigo-600 font-bold text-sm group-hover:translate-x-1 transition-transform"
+                    ):
+                        ui.label("立即使用")
+                        ui.icon("arrow_forward")
 
             # 卡片 3: 更多功能 (占位)
             with ui.card().classes(

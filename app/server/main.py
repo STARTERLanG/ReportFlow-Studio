@@ -13,6 +13,7 @@ from app.server.api.templates import router as templates_router
 from app.server.api.yaml import router as yaml_router
 from app.server.logger import setup_logger
 from app.server.ui.layout import render_home_page
+from app.server.ui.template_page import render_template_page
 from app.server.ui.yaml_gen_page import render_yaml_generator_page
 
 # 初始化日志
@@ -36,6 +37,11 @@ def home_page():
 @ui.page("/generator")
 def generator_page():
     render_yaml_generator_page()
+
+
+@ui.page("/template-parser")
+def template_page():
+    render_template_page()
 
 
 # 启动配置
