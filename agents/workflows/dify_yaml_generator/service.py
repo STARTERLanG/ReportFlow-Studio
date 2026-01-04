@@ -7,6 +7,7 @@ from pydantic import SecretStr
 from agents.memories.vector_store import RagService
 from app.server.config import settings
 from app.server.logger import logger
+from app.server.utils.context import status_callback_var
 
 from .nodes import WorkflowNodes
 from .state import GraphState
@@ -94,6 +95,7 @@ class YamlAgentService:
             return ""
 
     async def generate_yaml(self, user_request: str, context: str = "", status_callback=None) -> str:
+        # 定义内部通知函数
         async def notify(msg: str):
             if status_callback:
                 if asyncio.iscoroutinefunction(status_callback):
@@ -101,37 +103,43 @@ class YamlAgentService:
                 else:
                     status_callback(msg)
 
-        await notify("🚀 启动 YAML 生成工作流...")
-        logger.info("Start YAML Generation Workflow...")
+        # 设置 ContextVar，以便下游节点可以访问回调
+        token = status_callback_var.set(notify)
 
-        rag_context = ""
-        if self.rag_service:
-            try:
-                await notify("🔍 正在从知识库检索参考案例...")
-                refs = self.rag_service.search(user_request, k=2)
-                rag_context = "\n".join([f"--- Ref ---\n{r.page_content}" for r in refs])
-            except Exception as e:
-                logger.warning(f"RAG Search Failed: {e}")
+        try:
+            await notify("🚀 启动 YAML 生成工作流...")
+            logger.info("Start YAML Generation Workflow...")
 
-        initial_state: GraphState = {
-            "user_request": user_request,
-            "context": f"{context}\n\n{rag_context}".strip(),
-            "yaml_example": self._load_example_yaml(),
-            "plan": [],
-            "yaml_skeleton": "",
-            "generated_prompts": [],
-            "final_yaml": "",
-            "validation_errors": [],
-            "retry_count": 0,
-        }
+            rag_context = ""
+            if self.rag_service:
+                try:
+                    await notify("🔍 正在从知识库检索参考案例...")
+                    refs = self.rag_service.search(user_request, k=2)
+                    rag_context = "\n".join([f"--- Ref ---\n{r.page_content}" for r in refs])
+                except Exception as e:
+                    logger.warning(f"RAG Search Failed: {e}")
 
-        # 为了捕获内部节点的日志，我们可以在这里做简单的拦截或让节点自己调用 callback
-        # 简单起见，我们在主要步骤前后手动发送通知
-        await notify("📋 正在制定执行计划...")
-        final = await self.app.ainvoke(initial_state)
+            initial_state: GraphState = {
+                "user_request": user_request,
+                "context": f"{context}\n\n{rag_context}".strip(),
+                "yaml_example": self._load_example_yaml(),
+                "plan": [],
+                "yaml_skeleton": "",
+                "generated_prompts": [],
+                "final_yaml": "",
+                "validation_errors": [],
+                "retry_count": 0,
+            }
 
-        if final.get("validation_errors"):
-            await notify(f"⚠️ 校验发现错误，已尝试修复: {len(final['validation_errors'])} 个问题")
+            # 执行 Graph
+            final = await self.app.ainvoke(initial_state)
 
-        await notify("✨ 工作流组装完成！")
-        return final.get("final_yaml", "# Generation Failed")
+            if final.get("validation_errors"):
+                await notify(f"⚠️ 校验发现错误，已尝试修复: {len(final['validation_errors'])} 个问题")
+
+            await notify("✨ 工作流组装完成！")
+            return final.get("final_yaml", "# Generation Failed")
+        
+        finally:
+            # 清理 ContextVar，防止污染
+            status_callback_var.reset(token)
