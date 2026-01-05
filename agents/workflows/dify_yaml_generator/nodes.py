@@ -65,21 +65,21 @@ class WorkflowNodes:
                 logger.warning(f"Failed to execute UI callback: {e}")
 
     async def planner(self, state: GraphState) -> dict[str, Any]:
-        await self._log("DeepAgent: Planner Start")
+        await self._log("规划阶段：开始生成任务计划")
         chain = ChatPromptTemplate.from_template(DEEPAGENT_PLANNER_PROMPT) | self.llm
         try:
             # 使用 ainvoke 异步调用 LLM
             resp = await chain.ainvoke({"user_request": state["user_request"], "context": state["context"]})
             content = self._clean_block(str(resp.content))
             plan = json.loads(content).get("plan", [])
-            await self._log(f"Plan Generated: {len(plan)} steps")
+            await self._log(f"规划完成：已生成 {len(plan)} 个执行步骤")
             return {"plan": plan}
         except Exception as e:
-            await self._log(f"Planner Error: {e}", level="error")
+            await self._log(f"规划阶段错误：{e}", level="error")
             return {"plan": []}
 
     async def yaml_architect(self, state: GraphState) -> dict[str, Any]:
-        await self._log("DeepAgent: Architect Start")
+        await self._log("架构阶段：正在构建工作流逻辑蓝图...")
         chain = ChatPromptTemplate.from_template(YAML_ARCHITECT_PROMPT) | self.llm
         resp = await chain.ainvoke(
             {
@@ -91,88 +91,114 @@ class WorkflowNodes:
         json_str = self._clean_block(str(resp.content))
 
         try:
-            # Pydantic 校验是同步的，但很快
+            # Pydantic 校验
             WorkflowBlueprint(**json.loads(json_str))
-            await self._log("Blueprint JSON Validated")
+            await self._log("蓝图校验：JSON 结构合法，逻辑框架已就绪")
         except Exception as e:
-            await self._log(f"Blueprint Validation Failed: {e}", level="error")
+            await self._log(f"蓝图校验预警：{e}", level="warning")
 
-        return {"yaml_skeleton": json_str, "plan": state["plan"][1:]}
+        # 彻底清扫：移除所有与“设计/架构”相关的计划步骤
+        remaining_plan = [
+            p for p in state["plan"] 
+            if not any(k in str(p).lower() for k in ["design", "architect", "blueprint", "设计", "蓝图"])
+        ]
+        cleared_count = len(state["plan"]) - len(remaining_plan)
+        if cleared_count > 0:
+            await self._log(f"架构同步：已完成设计任务，从计划中清理了 {cleared_count} 个重复的设计步骤")
+
+        return {"yaml_skeleton": json_str, "plan": remaining_plan}
 
     async def prompt_expert(self, state: GraphState) -> dict[str, Any]:
-        await self._log("DeepAgent: Prompt Expert Start")
         try:
             bp_data = json.loads(state["yaml_skeleton"])
         except Exception:
             return {"plan": state["plan"][1:]}
 
-        updated = False
         nodes = bp_data.get("nodes", [])
+        llm_nodes = [n for n in nodes if n.get("type") == "llm"]
+        
+        await self._log(f"优化阶段：正在对 {len(llm_nodes)} 个 LLM 节点进行全局提示词精修...")
 
+        updated_count = 0
         chain = ChatPromptTemplate.from_template(PROMPT_EXPERT_PROMPT) | self.llm
 
-        # 并行优化所有节点的 Prompt 会更快，但为了日志清晰，这里先保持顺序或使用 asyncio.gather
-        # 这里演示顺序调用
         for node in nodes:
             if node.get("type") == "llm":
-                task_desc = f"Title: {node.get('title')}\nDraft: {node.get('system_prompt', '')}"
+                task_desc = f"标题: {node.get('title')}\n草案: {node.get('system_prompt', '')}"
                 try:
-                    await self._log(f"Optimizing Prompt for Node: {node.get('id')}...")
+                    await self._log(f"-> 正在微调节点 [{node.get('title', node.get('id'))}] 的指令...")
                     resp = await chain.ainvoke({"task_description": task_desc, "context": state["context"]})
                     node["system_prompt"] = self._clean_block(str(resp.content))
-                    updated = True
+                    updated_count += 1
                 except Exception as e:
-                    logger.warning(f"Prompt Optimization Failed for {node.get('id')}: {e}")
+                    logger.warning(f"提示词优化失败（节点：{node.get('id')}）：{e}")
 
-        if updated:
-            return {"yaml_skeleton": json.dumps(bp_data, ensure_ascii=False), "plan": state["plan"][1:]}
-        return {"plan": state["plan"][1:]}
+        # 彻底清扫：移除所有与“提示词/优化”相关的计划步骤
+        remaining_plan = [
+            p for p in state["plan"] 
+            if not any(k in str(p).lower() for k in ["prompt", "优化", "精修"])
+        ]
+        cleared_redundant = len(state["plan"]) - len(remaining_plan)
+        
+        await self._log(f"优化完成：已成功精修 {updated_count} 个节点，并清理了 {cleared_redundant} 个后续重复步骤")
+
+        return {
+            "yaml_skeleton": json.dumps(bp_data, ensure_ascii=False),
+            "plan": remaining_plan,
+        }
 
     async def assembler(self, state: GraphState) -> dict[str, Any]:
-        await self._log("DeepAgent: Assembler Start")
+        await self._log("组装阶段：开始将蓝图编译为 Dify 标准 YAML...")
         try:
             if not state["yaml_skeleton"]:
-                raise ValueError("Empty Blueprint")
+                raise ValueError("蓝图内容为空，无法进行组装")
 
             blueprint = WorkflowBlueprint(**json.loads(state["yaml_skeleton"]))
             # 同步构建逻辑
             final_yaml = DifyBuilder().build(blueprint)
 
-            # Internal Validation Check
+            # 内部校验
             validator = DifyDSLValidator()
             if validator.load_from_string(final_yaml):
                 is_valid, errors = validator.validate()
                 if not is_valid:
-                    error_msg = "\n".join([f"# [Error] {e}" for e in errors])
-                    await self._log(f"Validation Failed: {len(errors)} errors found", level="error")
-                    final_yaml = f"# ⚠️ Validation Failed:\n{error_msg}\n\n{final_yaml}"
+                    error_msg = "\n".join([f"# [错误] {e}" for e in errors])
+                    await self._log(f"组装预校验失败：发现 {len(errors)} 个结构问题，已触发自动修复环节", level="error")
+                    final_yaml = f"# 预校验未通过：\n{error_msg}\n\n{final_yaml}"
                     return {"final_yaml": final_yaml, "validation_errors": errors, "retry_count": 0}
 
-            await self._log("✅ Builder Output Validated")
-            return {"final_yaml": final_yaml, "validation_errors": [], "retry_count": 0}
+            # 彻底清扫：移除所有与“组装/编译/YAML”相关的计划步骤
+            remaining_plan = [
+                p for p in state["plan"] 
+                if not any(k in str(p).lower() for k in ["assemble", "yaml", "组装", "编译", "生成"])
+            ]
+            cleared_redundant = len(state["plan"]) - len(remaining_plan)
+            
+            await self._log(f"组装成功：YAML 已编译完成并符合 Dify DSL 规范。已清理 {cleared_redundant} 个后续冗余步骤。")
+            return {"final_yaml": final_yaml, "validation_errors": [], "retry_count": 0, "plan": remaining_plan}
 
         except Exception as e:
-            await self._log(f"Assembler Error: {e}", level="error")
+            await self._log(f"组装阶段发生严重错误：{e}", level="error")
             return {
-                "final_yaml": f"# Build Error: {e}\n# Source:\n{state.get('yaml_skeleton')}",
+                "final_yaml": f"# 编译致命错误：{e}\n# 原始蓝图：\n{state.get('yaml_skeleton')}",
                 "validation_errors": [str(e)],
             }
 
     async def validator(self, state: GraphState) -> dict[str, Any]:
-        """Re-check validator node"""
-        await self._log("DeepAgent: Validator Check")
+        """重读校验节点"""
+        await self._log("校验阶段：正在进行最终合规性检查")
         yaml_content = state.get("final_yaml", "")
-        if not yaml_content or yaml_content.startswith("# Build Error"):
-            return {"validation_errors": ["Build Failed"]}
+        if not yaml_content or yaml_content.startswith("# 编译错误"):
+            return {"validation_errors": ["编译失败"]}
 
         validator = DifyDSLValidator()
         if validator.load_from_string(yaml_content):
             is_valid, errors = validator.validate()
             return {"validation_errors": [] if is_valid else errors}
-        return {"validation_errors": ["Parse Failed"]}
+        return {"validation_errors": ["解析失败"]}
 
     async def repairer(self, state: GraphState) -> dict[str, Any]:
-        await self._log("DeepAgent: Repairer Start")
+        await self._log("修复阶段：正在尝试自动修正 YAML 错误")
         retry = state.get("retry_count", 0) + 1
 
         chain = ChatPromptTemplate.from_template(DSL_FIXER_PROMPT) | self.llm

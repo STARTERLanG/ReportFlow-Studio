@@ -22,12 +22,18 @@ from app.server.ui.yaml_gen_page import render_yaml_generator_page
 setup_logger()
 
 # 初始化数据库
+
 try:
+
     init_db()
+
 except Exception as e:
+
     from app.server.logger import logger
 
-    logger.error(f"Database initialization failed: {e}")
+    logger.error(f"数据库初始化失败：{e}")
+
+
 
 # --- 挂载 FastAPI 路由 ---
 app.include_router(templates_router, prefix="/api/v1")

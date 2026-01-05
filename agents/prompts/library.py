@@ -92,29 +92,38 @@ YAML_ARCHITECT_PROMPT = """
 ### 补充上下文
 {context}
 
-### 核心任务
-生成一个符合特定 Schema 的 JSON 对象，该对象将被 Python 程序读取并自动编译为 Dify YAML。你不需要直接写 YAML。
+### 实现标准 (严禁敷衍)
+1. **代码节点 (Code Node)**: 
+   - **禁止伪代码**: 严禁出现 `pass`、`# TODO`、`# 逻辑在此` 或任何占位符。
+   - **必须可执行**: 必须提供完整的 Python 3 函数逻辑。例如：处理字符串、解析 JSON、执行正则匹配或数学运算。
+   - **示例**: 如果是清洗文本，必须写出具体的 `.strip().replace()` 等逻辑。
+2. **提示词深度 (Prompt Depth)**:
+   - **禁止一句话指令**: LLM 节点的 `system_prompt` 必须包含“角色、任务、规则、输出格式”四个标准段落。
+   - **细化步骤**: 在 Prompt 内部也要体现分步思考 (Chain of Thought)。
+3. **颗粒度控制**:
+   - **禁止逻辑堆叠**: 如果一个任务包含“提取”和“判断”，必须拆分为两个节点。
+   - **中间层**: 鼓励增加“数据格式化”或“逻辑校验”的 Code 节点作为中间层。
 
-### 节点类型与规范
-1. **Start (`start`)**: 必须定义 `variables` (用户输入)。
+### 节点类型与规范 (严格遵守，严禁参考 Dify 内部格式)
+1. **Start (`start`)**: 必须定义 `variables` (用户输入列表)。
 2. **LLM (`llm`)**:
-   - 定义 `system_prompt` 和 `user_prompt`。
-   - **模型配置**: 如果上下文中指定了模型（如通义千问），**必须**在 `model` 字段中正确配置 `provider` 和 `name`。
-     - 例如: `"model": {{ "provider": "langgenius/tongyi/tongyi", "name": "qwen3-30b-a3b-instruct-2507", "mode": "chat", "completion_params": {{ "temperature": 0.2 }} }}`
-   - 引用变量使用 `@{{node_id.var_name}}` 格式。
-3. **HTTP (`http-request`)**:
-   - 必须定义 `url` 和 `method`。
-   - 可选定义 `headers` (字符串), `params` (字符串), `body` (字符串)。
-   - **超时**: 如果要求设置超时，请在 `timeout` 字段中设置（单位秒，例如 `timeout: {{ "connect": 10, "read": 30, "write": 30 }}`）。
-4. **Code (`code`)**: 定义 `code` (Python3) 和 `inputs` 映射。
-   - **必须**定义 `outputs` 列表，声明代码返回的所有字段名及其类型。
-5. **Template (`template-transform`)**: 定义 `template` 字符串。
-6. **If-Else (`if-else`)**: 定义 `branches` 列表。
-   - 每个分支包含 `operator` (contains, equals, etc.), `variable` (@{{...}}), `value`, `next_step`。
-   - **重要限制**: 仅支持二元分支（True/False）。
-   - 只能定义 **两个** 分支：一个普通条件分支，一个 `operator: "default"` 的分支作为 Else 路径。
-   - 如需多路判断，必须使用级联 If-Else。
-7. **End (`end`)**: 定义 `outputs` 映射。
+   - 定义 `system_prompt` 和 `user_prompt` (必须包含该字段)。
+   - **引用变量**: 统一使用 `@{{node_id.var_name}}`。
+3. **Code (`code`)**:
+   - **inputs**: **必须是字典 (Dict)**。Key 是变量名，Value 是引用字符串。
+     - 正确: `"inputs": {{ "text": "@{{start.query}}" }}`
+     - 错误: 严禁使用 `value_selector` 列表。
+   - **outputs**: **必须是列表 (List)**。
+     - 正确: `"outputs": [{{ "name": "result", "type": "string" }}]`
+     - 错误: 严禁使用字典格式。
+4. **End (`end`)**:
+   - **outputs**: **必须是列表 (List)**。
+     - 正确: `"outputs": [{{ "var": "final_text", "value": "@{{llm_node.text}}" }}]`
+
+### 格式红线 (违者必错)
+- **NO NESTED SELECTORS**: 严禁在 JSON 蓝图中使用 `value_selector: ["node", "var"]`。必须使用平铺的 `@{{node.var}}` 字符串。
+- **INPUTS ARE DICTS**: 所有的 `inputs` 字段必须是扁平的键值对字典。
+- **OUTPUTS ARE LISTS**: 除了 End 节点外，所有声明输出的字段必须是对象列表。
 
 ### 插件依赖 (Dependencies)
 - 如果需求涉及外部插件（如“通义千问”），**必须**在根对象的 `dependencies` 数组中声明。
@@ -137,60 +146,58 @@ YAML_ARCHITECT_PROMPT = """
    - **并行**: `next_step: ["branch_a", "branch_b"]`
 3. **节点 ID**: 使用语义化的英文 ID (e.g., `analyze_risk`)。
 
-### 输出格式
+### 输出格式 (体现分步逻辑的 Good Case)
 仅返回 JSON 对象，不要包含 Markdown 代码块标记。结构如下：
 {{
-  "name": "工作流名称",
-  "description": "...",
+  "name": "多步研报分析助手",
+  "description": "展示分步逻辑：获取数据 -> 核心提取 -> 结构化总结",
   "dependencies": [],
   "nodes": [
     {{
       "id": "start",
       "type": "start",
       "title": "开始",
-      "variables": [{{ "name": "query", "type": "string" }}],
-      "next_step": "router"
+      "variables": [{{ "name": "url", "type": "string" }}],
+      "next_step": "fetch_news"
     }},
     {{
-      "id": "fetch_data",
+      "id": "fetch_news",
       "type": "http-request",
-      "title": "获取数据",
-      "url": "https://api.example.com/data",
+      "title": "获取原始研报",
+      "url": "@{{start.url}}",
       "method": "GET",
-      "next_step": "process"
+      "next_step": "extract_data"
     }},
     {{
-      "id": "router",
-      "type": "if-else",
-      "title": "判断意图",
-      "branches": [
-        {{ "operator": "contains", "variable": "@{{start.query}}", "value": "退款", "next_step": "handle_refund" }},
-        {{ "operator": "default", "next_step": "handle_chat" }}
-      ]
-    }},
-    {{
-      "id": "handle_refund",
-      "type": "llm",
-      "title": "处理退款",
-      "model": {{ "provider": "openai", "name": "gpt-4o", "mode": "chat" }},
-      "system_prompt": "...",
-      "user_prompt": "@{{start.query}}",
-      "next_step": "end"
-    }},
-    {{
-      "id": "mock_api",
+      "id": "clean_text",
       "type": "code",
-      "title": "API 调用",
-      "code": "def main(q):\n    return {{'result': 'data'}}",
-      "inputs": {{ "q": "@{{start.query}}" }},
+      "title": "数据清洗：正则脱敏",
+      "code": "import re\\n\\ndef main(raw_text: str):\\n    # 真实逻辑实现：过滤特殊字符并统一换行符\\n    cleaned = re.sub(r'[^\\\\u4e00-\\\\u9fa5a-zA-Z0-9\\\\s]', '', raw_text)\\n    return {{'result': cleaned.strip()}}",
+      "inputs": {{ "raw_text": "@{{fetch_news.body}}" }},
       "outputs": [{{ "name": "result", "type": "string" }}],
+      "next_step": "extract_data"
+    }},
+    {{
+      "id": "extract_data",
+      "type": "llm",
+      "title": "步骤1：核心指标提取",
+      "system_prompt": "你负责从研报原文中提取财务指标，严禁进行任何主观分析。",
+      "user_prompt": "原文：@{{fetch_news.body}}",
+      "next_step": "analyze_trend"
+    }},
+    {{
+      "id": "analyze_trend",
+      "type": "llm",
+      "title": "步骤2：趋势风险研判",
+      "system_prompt": "基于步骤1提取的指标，分析该企业的经营趋势和潜在风险。",
+      "user_prompt": "指标数据：@{{extract_data.text}}",
       "next_step": "end"
     }},
     {{
       "id": "end",
       "type": "end",
       "title": "结束",
-      "outputs": [{{ "var": "res", "value": "@{{handle_refund.text}}" }}]
+      "outputs": [{{ "var": "report", "value": "@{{analyze_trend.text}}" }}]
     }}
   ]
 }}

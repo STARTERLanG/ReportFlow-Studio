@@ -41,7 +41,7 @@ class DifyBuilder:
         # 3. 组装最终结构
         dsl = {
             "kind": "app",
-            "version": "0.1.5",
+            "version": "0.5.0",
             "app": {
                 "name": blueprint.name,
                 "description": blueprint.description,
