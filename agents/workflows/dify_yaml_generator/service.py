@@ -152,7 +152,9 @@ class YamlAgentService:
                         final_yaml=result_yaml,
                         model_name=settings.llm.model_name,
                         status="success" if "final_yaml" in final else "failed",
-                        error_msg="\n".join(final.get("validation_errors", [])) if final.get("validation_errors") else None,
+                        error_msg="\n".join(final.get("validation_errors", []))
+                        if final.get("validation_errors")
+                        else None,
                     )
                     session.add(history)
                     session.commit()
@@ -160,7 +162,7 @@ class YamlAgentService:
                 logger.error(f"Failed to save history to database: {e}")
 
             return result_yaml
-        
+
         finally:
             # 清理 ContextVar，防止污染
             status_callback_var.reset(token)

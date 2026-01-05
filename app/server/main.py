@@ -14,6 +14,7 @@ from app.server.api.yaml import router as yaml_router
 from app.server.database import init_db
 from app.server.logger import setup_logger
 from app.server.ui.layout import render_home_page
+from app.server.ui.settings_page import render_settings_page
 from app.server.ui.template_page import render_template_page
 from app.server.ui.yaml_gen_page import render_yaml_generator_page
 
@@ -25,6 +26,7 @@ try:
     init_db()
 except Exception as e:
     from app.server.logger import logger
+
     logger.error(f"Database initialization failed: {e}")
 
 # --- 挂载 FastAPI 路由 ---
@@ -50,6 +52,11 @@ def generator_page():
 @ui.page("/template-parser")
 def template_page():
     render_template_page()
+
+
+@ui.page("/settings")
+def settings_page():
+    render_settings_page()
 
 
 # 启动配置

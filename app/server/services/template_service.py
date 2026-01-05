@@ -1,4 +1,3 @@
-from datetime import datetime
 import json
 from typing import Any
 
@@ -49,7 +48,7 @@ class TemplateService:
                     blueprint=result,  # 存储整个解析后的字典
                     final_yaml="",  # 模板解析不生成 YAML
                     status="success" if "tasks" in result else "failed",
-                    model_name=settings.llm.model_name
+                    model_name=settings.llm.model_name,
                 )
                 session.add(history)
                 session.commit()

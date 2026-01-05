@@ -4,24 +4,75 @@ from nicegui import ui
 def render_home_page():
     ui.query("body").classes("bg-slate-50")
 
-    # --- 顶栏 ---
-    with ui.header().classes("bg-white border-b border-slate-200 px-8 py-4 shadow-sm"):
-        with ui.row().classes("items-center gap-3"):
-            with ui.element("div").classes("p-2 bg-slate-900 rounded-lg"):
-                ui.icon("hub", size="1.5rem").classes("text-white")
-            ui.label("ReportFlow Studio").classes("text-xl font-bold text-slate-800")
+    ui.add_head_html("""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+            body { font-family: 'Plus Jakarta Sans', sans-serif; }
+            
+            .header-glass {
+                background: rgba(255, 255, 255, 0.7) !important;
+                backdrop-filter: blur(20px) saturate(180%);
+                border-bottom: 1px solid rgba(226, 232, 240, 0.5) !important;
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
+            }
+            .logo-text {
+                font-weight: 800;
+                letter-spacing: -0.02em;
+                background: linear-gradient(90deg, #0F172A 0%, #334155 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .nav-btn {
+                border-radius: 12px !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                font-weight: 600 !important;
+                color: #64748B !important;
+            }
+            .nav-btn:hover {
+                background: rgba(99, 102, 241, 0.08) !important;
+                color: #6366F1 !important;
+                transform: translateY(-1px);
+            }
+        </style>
+    """)
 
-        ui.button("API 文档", icon="api", on_click=lambda: ui.navigate.to("/docs")).props("flat color=slate-600")
+    # --- 顶栏 ---
+    with ui.header().classes("header-glass flex justify-center p-0"):
+        # 整体扩容：py-4，提升大气感
+        with ui.row().classes("w-full max-w-[1400px] items-center px-12 py-4 m-0"):
+            # Logo Group
+            with ui.row().classes("items-center gap-3.5 cursor-pointer m-0").on("click", lambda: ui.navigate.to("/")):
+                with ui.element("div").classes("p-2.5 bg-slate-900 rounded-2xl shadow-xl shadow-slate-200"):
+                    ui.icon("hub", size="1.6rem").classes("text-white")
+                with ui.column().classes("gap-0 p-0 m-0"):
+                    ui.label("ReportFlow").classes("text-2xl logo-text leading-none mb-1")
+                    ui.label("STUDIO v0.1").classes(
+                        "text-[11px] font-black text-indigo-400 tracking-[0.25em] leading-none"
+                    )
+
+            # Navigation Actions
+            with ui.row().classes("ml-auto items-center gap-3 m-0"):
+                ui.button("API 文档", icon="api", on_click=lambda: ui.navigate.to("/docs")).classes(
+                    "nav-btn px-5 py-2 text-base"
+                ).props("flat")
+                ui.button("系统设置", icon="settings", on_click=lambda: ui.navigate.to("/settings")).classes(
+                    "nav-btn px-5 py-2 text-base"
+                ).props("flat")
+
+                ui.separator().props("vertical").classes("mx-4 h-7 bg-slate-200")
+
+                with ui.button(icon="help_outline").props("flat round color=slate-400 size=md"):
+                    ui.tooltip("查看帮助")
 
     # --- 主体内容 ---
-    with ui.column().classes("w-full max-w-6xl mx-auto p-12 gap-12"):
-        # 欢迎标语
-        with ui.column().classes("gap-2"):
-            ui.label("欢迎回到工作台").classes("text-4xl font-black text-slate-900 tracking-tight")
-            ui.label("选择一个工具开始你的工作").classes("text-lg text-slate-500 font-medium")
+    with ui.column().classes("w-full max-w-[1400px] mx-auto px-12 pt-12 pb-32 gap-10 items-start"):
+        # 欢迎标语 - 改为 items-start 对齐左侧
+        with ui.column().classes("w-full gap-3 mt-2 items-start"):
+            ui.label("欢迎回到工作台").classes("text-5xl font-black text-slate-900 tracking-tight")
+            ui.label("选择一个工具开始你的工作，让 AI 释放你的生产力。").classes("text-xl text-slate-500 font-medium")
 
         # 功能卡片网格
-        with ui.grid(columns=3).classes("w-full gap-8"):
+        with ui.grid(columns=3).classes("w-full gap-10 mt-4"):
             # 卡片 1: YAML 生成器
             with (
                 ui.card()

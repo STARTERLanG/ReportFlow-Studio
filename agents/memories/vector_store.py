@@ -1,3 +1,4 @@
+import os
 import warnings
 from pathlib import Path
 
@@ -58,12 +59,32 @@ class RagService:
         logger.debug(f"初始化 Embeddings: Provider={cfg.provider}, Model={cfg.model_name}")
 
         if cfg.provider == "dashscope":
-            self.embedding_function = DashScopeEmbeddings(model=cfg.model_name, dashscope_api_key=cfg.api_key)
+            # 针对 DashScope 的特殊处理：强制禁用代理
+            # 使用 NO_PROXY 是最优雅的方式，它告诉 requests/httpx/urllib3 不要代理这些域名
+            # 这样就不会干扰到需要代理的 OpenAI 调用
+            no_proxy_list = ["dashscope.aliyuncs.com", "aliyuncs.com", "localhost", "127.0.0.1"]
+            current_no_proxy = os.environ.get("no_proxy", "")
+            if current_no_proxy:
+                no_proxy_list.append(current_no_proxy)
+
+            os.environ["no_proxy"] = ",".join(set(no_proxy_list))
+            os.environ["NO_PROXY"] = os.environ["no_proxy"]
+
+            # 同时清理可能存在的环境变量，防止某些旧版本的库不识别 no_proxy
+            for key in ["http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"]:
+                if key in os.environ:
+                    logger.debug(f"检测到代理环境变量 {key}，但在 DashScope 模式下将尝试忽略")
+
+            try:
+                self.embedding_function = DashScopeEmbeddings(model=cfg.model_name, dashscope_api_key=cfg.api_key)
+            except Exception as e:
+                logger.error(f"DashScopeEmbeddings 初始化失败: {e}")
+                raise
         else:
             self.embedding_function = OpenAIEmbeddings(
                 model=cfg.model_name,
                 api_key=cfg.api_key,
-                base_url=settings.llm.base_url,  # 允许 Embedding 也使用相同的代理 Base URL
+                base_url=settings.llm.base_url,
             )
 
     def _ensure_collection(self):

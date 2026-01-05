@@ -1,15 +1,18 @@
 import asyncio
+
 import yaml as pyyaml
 from nicegui import ui
-from sqlmodel import Session, select, desc
+from sqlmodel import Session, desc, select
+
 from agents.workflows.dify_yaml_generator import YamlAgentService
-from app.server.logger import logger
-from app.server.utils.visualizer import dify_yaml_to_mermaid
 from app.server.database import engine
+from app.server.logger import logger
 from app.server.models.history import WorkflowHistory
+from app.server.utils.visualizer import dify_yaml_to_mermaid
 
 # 初始化服务
 agent_service = YamlAgentService()
+
 
 def render_yaml_generator_page():
     # --- 样式定义 ---
@@ -145,20 +148,20 @@ def render_yaml_generator_page():
         shared=True,
     )
 
-    state = {
-        "is_generating": False,
-        "has_result": False,
-        "is_focused": False
-    }
+    state = {"is_generating": False, "has_result": False, "is_focused": False}
 
     # --- 侧边栏 ---
-    with ui.drawer(value=False, fixed=False, side='right').classes('history-drawer p-0 w-80 shadow-2xl') as history_drawer:
-        with ui.column().classes('w-full h-full p-6 gap-6'):
-            with ui.row().classes('w-full items-center justify-between'):
+    with ui.drawer(value=False, fixed=False, side="right").classes(
+        "history-drawer p-0 w-80 shadow-2xl"
+    ) as history_drawer:
+        with ui.column().classes("w-full h-full p-6 gap-6"):
+            with ui.row().classes("w-full items-center justify-between"):
                 ui.label("历史推演").classes("text-xl font-bold text-slate-800")
-                ui.button(icon="close", on_click=lambda: history_drawer.toggle()).props("flat round color=grey-7 size=sm")
-            
-            history_list_container = ui.column().classes('w-full gap-4')
+                ui.button(icon="close", on_click=lambda: history_drawer.toggle()).props(
+                    "flat round color=grey-7 size=sm"
+                )
+
+            history_list_container = ui.column().classes("w-full gap-4")
 
     def load_history():
         history_list_container.clear()
@@ -166,7 +169,7 @@ def render_yaml_generator_page():
             with Session(engine) as session:
                 statement = select(WorkflowHistory).order_by(desc(WorkflowHistory.created_at)).limit(20)
                 results = session.exec(statement).all()
-                
+
                 if not results:
                     with history_list_container:
                         ui.label("暂无历史记录").classes("text-slate-400 text-sm mt-10 w-full text-center")
@@ -174,20 +177,24 @@ def render_yaml_generator_page():
 
                 for record in results:
                     with history_list_container:
-                        with ui.card().classes('history-card w-full p-4 gap-2') as card:
+                        with ui.card().classes("history-card w-full p-4 gap-2") as card:
                             # 使用 lambda 闭包捕获当前 record
-                            card.on('click', lambda r=record: restore_history(r))
-                            
-                            with ui.row().classes('w-full items-center justify-between'):
-                                with ui.row().classes('gap-3'):
-                                    ui.label(record.created_at.strftime("%Y-%m-%d")).classes("text-[10px] font-bold text-slate-400 uppercase tracking-tighter")
-                                    ui.label(record.created_at.strftime("%H:%M")).classes("text-[10px] font-bold text-indigo-400 uppercase tracking-tighter")
+                            card.on("click", lambda r=record: restore_history(r))
+
+                            with ui.row().classes("w-full items-center justify-between"):
+                                with ui.row().classes("gap-3"):
+                                    ui.label(record.created_at.strftime("%Y-%m-%d")).classes(
+                                        "text-[10px] font-bold text-slate-400 uppercase tracking-tighter"
+                                    )
+                                    ui.label(record.created_at.strftime("%H:%M")).classes(
+                                        "text-[10px] font-bold text-indigo-400 uppercase tracking-tighter"
+                                    )
                                 status_color = "green" if record.status == "success" else "red"
                                 ui.icon("circle", size="8px", color=status_color)
-                            
+
                             ui.label(record.user_request).classes("text-sm text-slate-700 font-medium line-clamp-2")
-                            
-                            with ui.row().classes('w-full items-center gap-1'):
+
+                            with ui.row().classes("w-full items-center gap-1"):
                                 ui.icon("terminal", size="12px", color="slate-400")
                                 ui.label(record.model_name or "unknown").classes("text-[10px] text-slate-400")
         except Exception as e:
@@ -199,14 +206,14 @@ def render_yaml_generator_page():
     async def restore_history(record: WorkflowHistory):
         ui.notify(f"正在恢复历史记录: {record.created_at.strftime('%H:%M')}")
         query_input.value = record.user_request
-        
+
         # 填充结果
         yaml_display.content = record.final_yaml
         yaml_display.update()
-        
+
         mermaid_syntax = dify_yaml_to_mermaid(record.final_yaml)
         mermaid_display.set_content(mermaid_syntax)
-        
+
         # 展开结果区
         result_section.classes(remove="hidden")
         history_drawer.hide()
@@ -218,25 +225,32 @@ def render_yaml_generator_page():
                 ui.icon("hub", size="20px", color="indigo-500")
                 ui.label("Workflow Architect").classes("font-bold text-lg text-slate-800")
             ui.separator().props("vertical").classes("h-4 bg-slate-200")
-            
+
             # 按钮组
             with ui.row().classes("items-center gap-2"):
-                ui.button("历史", icon="history", on_click=lambda: (load_history(), history_drawer.toggle())).props("flat dense color=indigo-5 size=sm").classes("px-4")
+                ui.button("历史", icon="history", on_click=lambda: (load_history(), history_drawer.toggle())).props(
+                    "flat dense color=indigo-5 size=sm"
+                ).classes("px-4")
                 ui.button("返回首页", on_click=lambda: ui.navigate.to("/")).props("flat dense color=grey-7 size=sm")
 
     # --- 主容器 ---
-    with ui.column().classes("w-full max-w-6xl mx-auto px-6 pt-20 pb-32 items-center gap-16 transition-all duration-500"):
-        
+    with ui.column().classes(
+        "w-full max-w-6xl mx-auto px-6 pt-20 pb-32 items-center gap-16 transition-all duration-500"
+    ):
         # 1. 标题与输入区
-        hero_section = ui.column().classes("w-full max-w-3xl items-center text-center gap-8 transition-all duration-500")
+        hero_section = ui.column().classes(
+            "w-full max-w-3xl items-center text-center gap-8 transition-all duration-500"
+        )
         with hero_section:
             with ui.column().classes("gap-2 transition-all items-center") as title_group:
-                ui.label("Dify 工作流架构师").classes("text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight")
+                ui.label("Dify 工作流架构师").classes(
+                    "text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight"
+                )
                 ui.label("描述您的业务场景，AI 将自动推演逻辑并生成 YAML 蓝图。").classes("text-lg text-slate-500")
 
             # 输入框卡片
             input_card = ui.card().classes("input-glass w-full p-4 pb-2 relative transition-all duration-500")
-            
+
             def update_card_style():
                 # 核心逻辑：只要没聚焦，就折叠
                 if state["is_focused"]:
@@ -245,25 +259,32 @@ def render_yaml_generator_page():
                     input_card.classes(add="input-collapsed", remove="input-expanded")
 
             with input_card:
-                query_input = ui.textarea(
-                    placeholder="在此输入您的工作流需求..."
-                ).classes("w-full text-lg text-slate-700 mb-2").props("borderless autogrow rows=1")
-                
+                query_input = (
+                    ui.textarea(placeholder="在此输入您的工作流需求...")
+                    .classes("w-full text-lg text-slate-700 mb-2")
+                    .props("borderless autogrow rows=1")
+                )
+
                 with ui.row().classes("w-full justify-end"):
-                    send_btn = ui.button(icon="arrow_upward", on_click=lambda: run_design()).classes("rounded-xl w-10 h-10 transition-transform active:scale-95 flex-shrink-0 mb-1 shadow-md shadow-indigo-500/20").props("unelevated color=indigo-500")
+                    send_btn = (
+                        ui.button(icon="arrow_upward", on_click=lambda: run_design())
+                        .classes(
+                            "rounded-xl w-10 h-10 transition-transform active:scale-95 flex-shrink-0 mb-1 shadow-md shadow-indigo-500/20"
+                        )
+                        .props("unelevated color=indigo-500")
+                    )
 
             # 聚焦与失焦事件
             def on_focus():
                 state["is_focused"] = True
                 update_card_style()
-            
+
             def on_blur():
                 state["is_focused"] = False
                 ui.timer(0.1, update_card_style, once=True)
 
             query_input.on("focus", on_focus)
             query_input.on("blur", on_blur)
-
 
         # 2. 状态与日志
         status_container = ui.column().classes("w-full max-w-3xl hidden gap-4 transition-all")
@@ -272,17 +293,18 @@ def render_yaml_generator_page():
                 ui.spinner(size="sm", color="indigo-500").bind_visibility_from(state, "is_generating")
                 status_label = ui.label("Ready").classes("font-bold text-slate-400 text-sm uppercase tracking-widest")
 
-            with ui.element('div').classes("terminal-window w-full flex flex-col h-[320px]"):
+            with ui.element("div").classes("terminal-window w-full flex flex-col h-[320px]"):
                 log_scroll = ui.scroll_area().classes("w-full h-full p-6")
                 with log_scroll:
                     log_content = ui.column().classes("w-full gap-2")
-
 
         # 3. 结果展示区
         result_section = ui.column().classes("w-full max-w-3xl transition-all duration-700 hidden")
         with result_section:
             with ui.row().classes("w-full justify-center mb-6"):
-                with ui.tabs().classes("bg-white p-1 rounded-full shadow-sm border border-slate-200 compact-tabs") as tabs:
+                with ui.tabs().classes(
+                    "bg-white p-1 rounded-full shadow-sm border border-slate-200 compact-tabs"
+                ) as tabs:
                     tab_visual = ui.tab("架构蓝图", icon="account_tree")
                     tab_code = ui.tab("YAML 源码", icon="code")
 
@@ -290,11 +312,13 @@ def render_yaml_generator_page():
                 with ui.tab_panels(tabs, value=tab_visual).classes("w-full h-full"):
                     with ui.tab_panel(tab_visual).classes("p-0 w-full h-full bg-slate-50 relative overflow-hidden"):
                         mermaid_display = ui.mermaid("").classes("w-full h-full p-8")
-                        ui.label("支持缩放与拖拽").classes("absolute bottom-6 right-6 text-[10px] font-bold text-slate-300 uppercase tracking-widest bg-white/80 px-3 py-1.5 rounded-full border border-slate-100")
+                        ui.label("支持缩放与拖拽").classes(
+                            "absolute bottom-6 right-6 text-[10px] font-bold text-slate-300 uppercase tracking-widest bg-white/80 px-3 py-1.5 rounded-full border border-slate-100"
+                        )
 
-                    with ui.tab_panel(tab_code).classes("p-0 w-full h-full"): 
+                    with ui.tab_panel(tab_code).classes("p-0 w-full h-full"):
                         yaml_display = ui.code("", language="yaml").classes("w-full h-full text-[13px] yaml-code-box")
-                        
+
                         def download_yaml():
                             if not yaml_display.content:
                                 return
@@ -302,19 +326,28 @@ def render_yaml_generator_page():
                                 # 尝试解析 YAML 获取名字
                                 data = pyyaml.safe_load(yaml_display.content)
                                 # Dify DSL 结构通常在 app.name
-                                file_name = data.get('app', {}).get('name', 'workflow')
+                                file_name = data.get("app", {}).get("name", "workflow")
                             except Exception:
                                 file_name = "workflow"
-                            
+
                             # 转换为二进制并触发下载
-                            import base64
-                            content_bytes = yaml_display.content.encode('utf-8')
+                            content_bytes = yaml_display.content.encode("utf-8")
                             ui.download(content_bytes, f"{file_name}.yml")
                             ui.notify(f"正在下载: {file_name}.yml", type="positive")
 
                         with ui.row().classes("absolute top-6 right-6 gap-2"):
-                            ui.button(icon="download", on_click=download_yaml).props("flat round color=indigo-4 size=sm").classes("opacity-60 hover:opacity-100").tooltip("下载 YAML")
-                            ui.button(icon="content_copy", on_click=lambda: (ui.clipboard.write(yaml_display.content), ui.notify("已复制到剪贴板"))).props("flat round color=grey-6 size=sm").classes("opacity-40 hover:opacity-100").tooltip("复制源码")
+                            ui.button(icon="download", on_click=download_yaml).props(
+                                "flat round color=indigo-4 size=sm"
+                            ).classes("opacity-60 hover:opacity-100").tooltip("下载 YAML")
+                            ui.button(
+                                icon="content_copy",
+                                on_click=lambda: (
+                                    ui.clipboard.write(yaml_display.content),
+                                    ui.notify("已复制到剪贴板"),
+                                ),
+                            ).props("flat round color=grey-6 size=sm").classes("opacity-40 hover:opacity-100").tooltip(
+                                "复制源码"
+                            )
 
     # --- 逻辑处理 ---
     async def run_design():
@@ -322,38 +355,38 @@ def render_yaml_generator_page():
             ui.notify("需求描述太短了", type="warning")
             return
 
-        query_input.run_method('blur')
+        query_input.run_method("blur")
         state["is_generating"] = True
         state["has_result"] = True
         update_card_style()
-        
+
         status_container.classes(remove="hidden")
         log_content.clear()
-        
+
         with log_content:
             ui.label("> Architect Engine Initialized.").classes("text-slate-500 font-mono text-xs")
 
         async def ui_callback(message: str):
-            status_label.text = "Thinking..." 
+            status_label.text = "Thinking..."
             with log_content:
                 ui.label(f">> {message}").classes("text-indigo-300 font-mono text-xs leading-relaxed break-all")
             log_scroll.scroll_to(percent=1.0)
 
         try:
             yaml_output = await agent_service.generate_yaml(user_request=query_input.value, status_callback=ui_callback)
-            
+
             state["is_generating"] = False
             status_label.text = "Build Complete"
-            
+
             yaml_display.content = yaml_output
             yaml_display.update()
-            
+
             mermaid_syntax = dify_yaml_to_mermaid(yaml_output)
             mermaid_display.set_content(mermaid_syntax)
-            
+
             result_section.classes(remove="hidden")
-            await asyncio.sleep(0.2) 
-            
+            await asyncio.sleep(0.2)
+
             ui.notify("工作流架构已构建完成", type="positive", color="indigo")
 
         except Exception as e:

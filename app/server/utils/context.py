@@ -1,5 +1,5 @@
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-from typing import Callable, Awaitable, Any
 
 # 定义全局上下文变量用于存储回调函数
 # 回调签名: async def callback(message: str) -> None
