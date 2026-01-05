@@ -41,14 +41,30 @@ def render_home_page():
         # 整体扩容：py-4，提升大气感
         with ui.row().classes("w-full max-w-[1400px] items-center px-12 py-4 m-0"):
             # Logo Group
-            with ui.row().classes("items-center gap-3.5 cursor-pointer m-0").on("click", lambda: ui.navigate.to("/")):
-                with ui.element("div").classes("p-2.5 bg-slate-900 rounded-2xl shadow-xl shadow-slate-200"):
-                    ui.icon("hub", size="1.6rem").classes("text-white")
+            with ui.row().classes("items-center gap-4 cursor-pointer m-0").on('click', lambda: ui.navigate.to('/')):
+                # 自定义 SVG Logo
+                ui.html("""
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="logo-grad" x1="0" y1="0" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stop-color="#6366F1" />
+                                <stop offset="100%" stop-color="#14B8A6" />
+                            </linearGradient>
+                            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="2" result="blur" />
+                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
+                        </defs>
+                        <rect x="4" y="4" width="34" height="34" rx="10" fill="url(#logo-grad)" style="filter: url(#glow); opacity: 0.9;" />
+                        <path d="M12 14H30M12 21H30M12 28H22" stroke="white" stroke-width="3" stroke-linecap="round" style="opacity: 0.8" />
+                        <circle cx="30" cy="28" r="5" fill="white" />
+                        <path d="M28 28H32M30 26V30" stroke="#14B8A6" stroke-width="1.5" stroke-linecap="round" />
+                    </svg>
+                """, sanitize=False).classes("transition-transform hover:scale-110 duration-500 drop-shadow-xl")
+                
                 with ui.column().classes("gap-0 p-0 m-0"):
                     ui.label("ReportFlow").classes("text-2xl logo-text leading-none mb-1")
-                    ui.label("STUDIO v0.1").classes(
-                        "text-[11px] font-black text-indigo-400 tracking-[0.25em] leading-none"
-                    )
+                    ui.label("STUDIO v0.1").classes("text-[11px] font-black text-indigo-400 tracking-[0.25em] leading-none")
 
             # Navigation Actions
             with ui.row().classes("ml-auto items-center gap-3 m-0"):
