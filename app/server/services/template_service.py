@@ -1,13 +1,17 @@
+from datetime import datetime
 import json
 from typing import Any
 
 from docx import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from sqlmodel import Session
 
 from agents.prompts.library import TEMPLATE_STRUCTURE_ANALYSIS_PROMPT
 from app.server.config import settings
+from app.server.database import engine
 from app.server.logger import logger
+from app.server.models.history import WorkflowHistory
 
 
 class TemplateService:
@@ -21,10 +25,12 @@ class TemplateService:
             timeout=120,
         )
 
-    def parse_and_decompose(self, file_path: str) -> list[dict[str, Any]]:
+    def parse_and_decompose(self, file_path: str, original_filename: str | None = None) -> dict[str, Any]:
         """
         读取 Word 文档全文，并调用 AI 进行结构化分析（变量 + 任务）。
         """
+        # 如果提供了原始文件名则使用，否则从路径截取
+        record_name = original_filename or file_path.split("/")[-1].split("\\")[-1]
         logger.info(f"正在读取模板文件: {file_path}")
 
         # 1. 结构化提取 (Markdown 风格)
@@ -33,6 +39,22 @@ class TemplateService:
         # 2. 调用 AI 进行分析
         logger.info(f"提取结构化文本成功 (长度: {len(structured_content)} 字符)，正在进行 AI 语义分析...")
         result = self._analyze_structure_with_llm(structured_content)
+
+        # 3. 保存历史记录
+        try:
+            with Session(engine) as session:
+                history = WorkflowHistory(
+                    user_request=record_name,
+                    category="template-parse",
+                    blueprint=result,  # 存储整个解析后的字典
+                    final_yaml="",  # 模板解析不生成 YAML
+                    status="success" if "tasks" in result else "failed",
+                    model_name=settings.llm.model_name
+                )
+                session.add(history)
+                session.commit()
+        except Exception as e:
+            logger.error(f"Failed to save template history: {e}")
 
         return result
 

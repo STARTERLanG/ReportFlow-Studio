@@ -3,8 +3,11 @@ import os
 import tempfile
 
 from nicegui import events, ui
+from sqlmodel import Session, select, desc
 
+from app.server.database import engine
 from app.server.logger import logger
+from app.server.models.history import WorkflowHistory
 from app.server.services.template_service import TemplateService
 
 # 实例化 Service (单例)
@@ -105,6 +108,28 @@ def render_template_page():
                 border-color: var(--c-accent);
                 background: #F0FDFA;
             }
+
+            /* 历史记录侧边栏样式 */
+            .history-drawer {
+                background: rgba(248, 250, 252, 0.4) !important;
+                backdrop-filter: blur(30px) saturate(150%);
+                border-left: 1px solid rgba(255, 255, 255, 0.5);
+            }
+            .history-card {
+                background: rgba(255, 255, 255, 0.6);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(226, 232, 240, 0.8);
+                border-radius: 24px;
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                cursor: pointer;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            }
+            .history-card:hover {
+                background: white;
+                border-color: var(--c-accent);
+                transform: translateY(-4px) scale(1.02);
+                box-shadow: 0 20px 25px -5px rgba(20, 184, 166, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            }
         </style>
         """,
         shared=True,
@@ -112,6 +137,58 @@ def render_template_page():
 
     # --- 状态管理 ---
     state = {"tasks": [], "filename": None}
+
+    # --- 侧边栏 ---
+    with ui.drawer(value=False, fixed=False, side='right').classes('history-drawer p-0 w-80 shadow-2xl') as history_drawer:
+        with ui.column().classes('w-full h-full p-6 gap-6'):
+            with ui.row().classes('w-full items-center justify-between'):
+                ui.label("解析历史").classes("text-xl font-bold text-slate-800")
+                ui.button(icon="close", on_click=lambda: history_drawer.toggle()).props("flat round color=grey-7 size=sm")
+            
+            history_list_container = ui.column().classes('w-full gap-4')
+
+    def load_history():
+        history_list_container.clear()
+        try:
+            with Session(engine) as session:
+                statement = select(WorkflowHistory).where(WorkflowHistory.category == "template-parse").order_by(desc(WorkflowHistory.created_at)).limit(20)
+                results = session.exec(statement).all()
+                
+                if not results:
+                    with history_list_container:
+                        ui.label("暂无解析记录").classes("text-slate-400 text-sm mt-10 w-full text-center")
+                    return
+
+                for record in results:
+                    with history_list_container:
+                        with ui.card().classes('history-card w-full p-4 gap-2') as card:
+                            card.on('click', lambda r=record: restore_history(r))
+                            
+                            with ui.row().classes('w-full items-center justify-between'):
+                                with ui.row().classes('gap-3'):
+                                    ui.label(record.created_at.strftime("%Y-%m-%d")).classes("text-[10px] font-bold text-slate-400 uppercase tracking-tighter")
+                                    ui.label(record.created_at.strftime("%H:%M")).classes("text-[10px] font-bold text-teal-400 uppercase tracking-tighter")
+                                ui.icon("circle", size="8px", color="green")
+                            
+                            ui.label(record.user_request).classes("text-sm text-slate-700 font-medium line-clamp-1")
+                            
+                            with ui.row().classes('w-full items-center gap-1'):
+                                ui.icon("article", size="12px", color="slate-400")
+                                tasks_count = len(record.blueprint.get("tasks", [])) if record.blueprint else 0
+                                ui.label(f"{tasks_count} 个任务").classes("text-[10px] text-slate-400")
+
+        except Exception as e:
+            logger.error(f"加载历史记录失败: {e}")
+            with history_list_container:
+                ui.label("数据库连接异常").classes("text-red-400 text-sm mt-10 w-full text-center")
+
+    def restore_history(record: WorkflowHistory):
+        if record.blueprint and "tasks" in record.blueprint:
+            state["tasks"] = record.blueprint["tasks"]
+            state["filename"] = record.user_request
+            refresh_ui()
+            ui.notify(f"已恢复历史版本: {record.user_request}")
+            history_drawer.hide()
 
     # --- 顶部导航 ---
     with ui.row().classes("w-full justify-center sticky top-0 z-50 pointer-events-none"):
@@ -121,9 +198,12 @@ def render_template_page():
                 ui.label("ReportFlow").classes("font-bold text-lg tracking-tight text-slate-800")
 
             ui.separator().props("vertical").classes("h-4 bg-slate-200")
-            ui.button("返回首页", on_click=lambda: ui.navigate.to("/")).props(
-                "flat dense color=grey-7 size=sm"
-            ).classes("font-medium")
+            
+            with ui.row().classes("items-center gap-2"):
+                ui.button("历史", icon="history", on_click=lambda: (load_history(), history_drawer.toggle())).props("flat dense color=teal-5 size=sm").classes("px-4 font-medium")
+                ui.button("返回首页", on_click=lambda: ui.navigate.to("/")).props(
+                    "flat dense color=grey-7 size=sm"
+                ).classes("font-medium")
 
     # --- 主体容器 ---
     with ui.column().classes("w-full max-w-5xl mx-auto px-6 pt-16 pb-32 gap-12 items-center"):
@@ -158,7 +238,12 @@ def render_template_page():
 
                         try:
                             loop = asyncio.get_running_loop()
-                            result = await loop.run_in_executor(None, template_service.parse_and_decompose, tmp_path)
+                            result = await loop.run_in_executor(
+                                None, 
+                                template_service.parse_and_decompose, 
+                                tmp_path, 
+                                filename
+                            )
                             state["tasks"] = result.get("tasks", [])
                             state["filename"] = filename
                             refresh_ui()

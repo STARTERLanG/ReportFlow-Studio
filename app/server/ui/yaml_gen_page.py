@@ -1,8 +1,12 @@
 import asyncio
+import yaml as pyyaml
 from nicegui import ui
+from sqlmodel import Session, select, desc
 from agents.workflows.dify_yaml_generator import YamlAgentService
 from app.server.logger import logger
 from app.server.utils.visualizer import dify_yaml_to_mermaid
+from app.server.database import engine
+from app.server.models.history import WorkflowHistory
 
 # 初始化服务
 agent_service = YamlAgentService()
@@ -112,6 +116,30 @@ def render_yaml_generator_page():
                 text-shadow: none !important;
                 font-family: 'JetBrains Mono', monospace !important;
             }
+
+            .history-drawer {
+                background: rgba(248, 250, 252, 0.4) !important;
+                backdrop-filter: blur(30px) saturate(150%);
+                border-left: 1px solid rgba(255, 255, 255, 0.5);
+            }
+            .history-card {
+                background: rgba(255, 255, 255, 0.6);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(226, 232, 240, 0.8);
+                border-radius: 24px;
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                cursor: pointer;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            }
+            .history-card:hover {
+                background: white;
+                border-color: #6366F1;
+                transform: translateY(-4px) scale(1.02);
+                box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            }
+            .history-card:active {
+                transform: translateY(-2px) scale(0.98);
+            }
         </style>
         """,
         shared=True,
@@ -123,6 +151,66 @@ def render_yaml_generator_page():
         "is_focused": False
     }
 
+    # --- 侧边栏 ---
+    with ui.drawer(value=False, fixed=False, side='right').classes('history-drawer p-0 w-80 shadow-2xl') as history_drawer:
+        with ui.column().classes('w-full h-full p-6 gap-6'):
+            with ui.row().classes('w-full items-center justify-between'):
+                ui.label("历史推演").classes("text-xl font-bold text-slate-800")
+                ui.button(icon="close", on_click=lambda: history_drawer.toggle()).props("flat round color=grey-7 size=sm")
+            
+            history_list_container = ui.column().classes('w-full gap-4')
+
+    def load_history():
+        history_list_container.clear()
+        try:
+            with Session(engine) as session:
+                statement = select(WorkflowHistory).order_by(desc(WorkflowHistory.created_at)).limit(20)
+                results = session.exec(statement).all()
+                
+                if not results:
+                    with history_list_container:
+                        ui.label("暂无历史记录").classes("text-slate-400 text-sm mt-10 w-full text-center")
+                    return
+
+                for record in results:
+                    with history_list_container:
+                        with ui.card().classes('history-card w-full p-4 gap-2') as card:
+                            # 使用 lambda 闭包捕获当前 record
+                            card.on('click', lambda r=record: restore_history(r))
+                            
+                            with ui.row().classes('w-full items-center justify-between'):
+                                with ui.row().classes('gap-3'):
+                                    ui.label(record.created_at.strftime("%Y-%m-%d")).classes("text-[10px] font-bold text-slate-400 uppercase tracking-tighter")
+                                    ui.label(record.created_at.strftime("%H:%M")).classes("text-[10px] font-bold text-indigo-400 uppercase tracking-tighter")
+                                status_color = "green" if record.status == "success" else "red"
+                                ui.icon("circle", size="8px", color=status_color)
+                            
+                            ui.label(record.user_request).classes("text-sm text-slate-700 font-medium line-clamp-2")
+                            
+                            with ui.row().classes('w-full items-center gap-1'):
+                                ui.icon("terminal", size="12px", color="slate-400")
+                                ui.label(record.model_name or "unknown").classes("text-[10px] text-slate-400")
+        except Exception as e:
+            logger.error(f"加载历史记录失败: {e}")
+            with history_list_container:
+                ui.label("无法连接到数据库").classes("text-red-400 text-sm mt-10 w-full text-center")
+                ui.button("重试", on_click=load_history).props("flat color=grey-7 size=sm").classes("w-full")
+
+    async def restore_history(record: WorkflowHistory):
+        ui.notify(f"正在恢复历史记录: {record.created_at.strftime('%H:%M')}")
+        query_input.value = record.user_request
+        
+        # 填充结果
+        yaml_display.content = record.final_yaml
+        yaml_display.update()
+        
+        mermaid_syntax = dify_yaml_to_mermaid(record.final_yaml)
+        mermaid_display.set_content(mermaid_syntax)
+        
+        # 展开结果区
+        result_section.classes(remove="hidden")
+        history_drawer.hide()
+
     # --- 导航栏 ---
     with ui.row().classes("w-full justify-center sticky top-4 z-50 pointer-events-none"):
         with ui.row().classes("nav-capsule items-center gap-6 pointer-events-auto"):
@@ -130,7 +218,11 @@ def render_yaml_generator_page():
                 ui.icon("hub", size="20px", color="indigo-500")
                 ui.label("Workflow Architect").classes("font-bold text-lg text-slate-800")
             ui.separator().props("vertical").classes("h-4 bg-slate-200")
-            ui.button("返回首页", on_click=lambda: ui.navigate.to("/")).props("flat dense color=grey-7 size=sm")
+            
+            # 按钮组
+            with ui.row().classes("items-center gap-2"):
+                ui.button("历史", icon="history", on_click=lambda: (load_history(), history_drawer.toggle())).props("flat dense color=indigo-5 size=sm").classes("px-4")
+                ui.button("返回首页", on_click=lambda: ui.navigate.to("/")).props("flat dense color=grey-7 size=sm")
 
     # --- 主容器 ---
     with ui.column().classes("w-full max-w-6xl mx-auto px-6 pt-20 pb-32 items-center gap-16 transition-all duration-500"):
@@ -202,7 +294,27 @@ def render_yaml_generator_page():
 
                     with ui.tab_panel(tab_code).classes("p-0 w-full h-full"): 
                         yaml_display = ui.code("", language="yaml").classes("w-full h-full text-[13px] yaml-code-box")
-                        ui.button(icon="content_copy", on_click=lambda: ui.clipboard.write(yaml_display.content)).props("flat round color=grey-6 size=sm").classes("absolute top-6 right-6 opacity-40 hover:opacity-100")
+                        
+                        def download_yaml():
+                            if not yaml_display.content:
+                                return
+                            try:
+                                # 尝试解析 YAML 获取名字
+                                data = pyyaml.safe_load(yaml_display.content)
+                                # Dify DSL 结构通常在 app.name
+                                file_name = data.get('app', {}).get('name', 'workflow')
+                            except Exception:
+                                file_name = "workflow"
+                            
+                            # 转换为二进制并触发下载
+                            import base64
+                            content_bytes = yaml_display.content.encode('utf-8')
+                            ui.download(content_bytes, f"{file_name}.yml")
+                            ui.notify(f"正在下载: {file_name}.yml", type="positive")
+
+                        with ui.row().classes("absolute top-6 right-6 gap-2"):
+                            ui.button(icon="download", on_click=download_yaml).props("flat round color=indigo-4 size=sm").classes("opacity-60 hover:opacity-100").tooltip("下载 YAML")
+                            ui.button(icon="content_copy", on_click=lambda: (ui.clipboard.write(yaml_display.content), ui.notify("已复制到剪贴板"))).props("flat round color=grey-6 size=sm").classes("opacity-40 hover:opacity-100").tooltip("复制源码")
 
     # --- 逻辑处理 ---
     async def run_design():

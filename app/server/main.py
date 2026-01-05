@@ -11,6 +11,7 @@ from app.server.api.blueprints import router as blueprints_router
 from app.server.api.files import router as files_router
 from app.server.api.templates import router as templates_router
 from app.server.api.yaml import router as yaml_router
+from app.server.database import init_db
 from app.server.logger import setup_logger
 from app.server.ui.layout import render_home_page
 from app.server.ui.template_page import render_template_page
@@ -18,6 +19,13 @@ from app.server.ui.yaml_gen_page import render_yaml_generator_page
 
 # 初始化日志
 setup_logger()
+
+# 初始化数据库
+try:
+    init_db()
+except Exception as e:
+    from app.server.logger import logger
+    logger.error(f"Database initialization failed: {e}")
 
 # --- 挂载 FastAPI 路由 ---
 app.include_router(templates_router, prefix="/api/v1")

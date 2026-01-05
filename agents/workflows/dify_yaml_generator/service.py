@@ -3,10 +3,13 @@ import asyncio
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph  # type: ignore
 from pydantic import SecretStr
+from sqlmodel import Session
 
 from agents.memories.vector_store import RagService
 from app.server.config import settings
+from app.server.database import engine
 from app.server.logger import logger
+from app.server.models.history import WorkflowHistory
 from app.server.utils.context import status_callback_var
 
 from .nodes import WorkflowNodes
@@ -138,7 +141,25 @@ class YamlAgentService:
                 await notify(f"⚠️ 校验发现错误，已尝试修复: {len(final['validation_errors'])} 个问题")
 
             await notify("✨ 工作流组装完成！")
-            return final.get("final_yaml", "# Generation Failed")
+            result_yaml = final.get("final_yaml", "# Generation Failed")
+
+            # 保存到数据库
+            try:
+                with Session(engine) as session:
+                    history = WorkflowHistory(
+                        user_request=user_request,
+                        context=context,
+                        final_yaml=result_yaml,
+                        model_name=settings.llm.model_name,
+                        status="success" if "final_yaml" in final else "failed",
+                        error_msg="\n".join(final.get("validation_errors", [])) if final.get("validation_errors") else None,
+                    )
+                    session.add(history)
+                    session.commit()
+            except Exception as e:
+                logger.error(f"Failed to save history to database: {e}")
+
+            return result_yaml
         
         finally:
             # 清理 ContextVar，防止污染

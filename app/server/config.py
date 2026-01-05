@@ -22,6 +22,20 @@ class LLMConfig:
 
 
 @dataclass
+class DBConfig:
+    host: str
+    port: int
+    user: str
+    password: str
+    database: str
+
+    @property
+    def url(self) -> str:
+        # 使用 pymysql 驱动
+        return f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
+
+@dataclass
 class EmbeddingConfig:
     provider: str
     model_name: str
@@ -42,6 +56,14 @@ class Settings:
         l_base = os.getenv("OPENAI_BASE_URL")
         l_key = os.getenv("OPENAI_API_KEY")
         self.llm = LLMConfig(model_name=l_model, base_url=l_base, api_key=l_key)
+
+        # 数据库配置
+        db_host = os.getenv("DB_HOST", "localhost")
+        db_port = int(os.getenv("DB_PORT", "3306"))
+        db_user = os.getenv("DB_USER", "root")
+        db_pass = os.getenv("DB_PASSWORD", "")
+        db_name = os.getenv("DB_NAME", "reportflow")
+        self.db = DBConfig(host=db_host, port=db_port, user=db_user, password=db_pass, database=db_name)
 
         # Embedding 配置
         e_provider = os.getenv("EMBEDDING_PROVIDER", "openai").lower()
